@@ -1,0 +1,159 @@
+{
+  "name": "opensearch-query-runner",
+  "displayName": "OpenSearch Query Runner",
+  "description": "Execute SQL/PPL queries against OpenSearch clusters from markdown files",
+  "version": "0.1.0",
+  "publisher": "opensearch-query",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "Data Science",
+    "Testing"
+  ],
+  "keywords": [
+    "opensearch",
+    "elasticsearch",
+    "sql",
+    "ppl",
+    "query",
+    "markdown",
+    "rest"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "opensearch-query.runQuery",
+        "title": "Run Query",
+        "category": "OpenSearch"
+      },
+      {
+        "command": "opensearch-query.runQueryInline",
+        "title": "Run Query (Inline)",
+        "category": "OpenSearch"
+      },
+      {
+        "command": "opensearch-query.runQueryInTab",
+        "title": "Run Query (Separate Tab)",
+        "category": "OpenSearch"
+      },
+      {
+        "command": "opensearch-query.showHistory",
+        "title": "Show Query History",
+        "category": "OpenSearch"
+      },
+      {
+        "command": "opensearch-query.configureConnection",
+        "title": "Configure Connection",
+        "category": "OpenSearch"
+      }
+    ],
+    "configuration": {
+      "title": "OpenSearch Query Runner",
+      "properties": {
+        "opensearch.endpoint": {
+          "type": "string",
+          "default": "http://localhost:9200",
+          "description": "OpenSearch cluster endpoint URL"
+        },
+        "opensearch.auth.type": {
+          "type": "string",
+          "enum": [
+            "none",
+            "basic",
+            "apikey"
+          ],
+          "default": "none",
+          "description": "Authentication type"
+        },
+        "opensearch.auth.username": {
+          "type": "string",
+          "default": "",
+          "description": "Username for basic authentication"
+        },
+        "opensearch.auth.password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for basic authentication"
+        },
+        "opensearch.auth.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for authentication"
+        },
+        "opensearch.timeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Request timeout in milliseconds"
+        },
+        "opensearch.maxHistoryItems": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of history items to keep"
+        },
+        "opensearch.enableCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CodeLens for query blocks"
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "opensearch-query.runQuery",
+          "when": "resourceExtname == .md",
+          "group": "opensearch"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "opensearch-query.runQuery",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "opensearch-query.runQueryInline",
+          "when": "resourceExtname == .md"
+        },
+        {
+          "command": "opensearch-query.runQueryInTab",
+          "when": "resourceExtname == .md"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "reinstall": "npm run package && code --uninstall-extension opensearch-query.opensearch-query-runner && code --install-extension opensearch-query-runner-0.1.0.vsix",
+    "dev": "npm run compile && npm run reinstall"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4",
+    "@vscode/test-electron": "^2.2.0",
+    "@vscode/vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opensearch-query/vscode-extension"
+  },
+  "license": "MIT"
+}
