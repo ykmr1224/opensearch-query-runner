@@ -104,13 +104,6 @@ MAPPINGS (
 SHOW TABLES LIKE 'logs'
 ```
 
-### Drop Index
-
-```sql
--- Description: Delete an index (use with caution!)
--- Timeout: 15s
-DROP TABLE logs
-```
 
 ## PPL Queries
 
@@ -177,14 +170,50 @@ source=logs
 | head 24
 ```
 
+## Debug Testing - Intentional Failures
+
+### Test Failed SQL Query (for debugging Raw Request/Response)
+
+```sql
+-- Description: This query should fail to test Raw Request/Response tabs
+-- Timeout: 10s
+SELECT * FROM nonexistent_index_12345 LIMIT 5
+```
+
+### Test Failed API Request (for debugging Raw Request/Response)
+
+```opensearch-api
+-- Description: This API request should fail to test Raw Request/Response tabs
+-- Method: GET
+-- Endpoint: /nonexistent_index_12345/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+### Test Invalid API Request (for debugging Raw Request/Response)
+
+```opensearch-api
+-- Description: This should fail with invalid JSON to test error handling
+-- Method: POST
+-- Endpoint: /test_index/_doc
+{
+  "invalid": "json"
+  "missing": "comma"
+}
+```
+
 ## Test Instructions
 
 1. **Configure Connection**: First, configure your OpenSearch connection using the status bar item or Command Palette
 2. **Test CodeLens**: You should see "Run Query", "Inline", and "Separate Tab" buttons above each query block
 3. **Test Inline Mode**: Click "Inline" to see results inserted below the query
 4. **Test Separate Tab**: Click "Separate Tab" to open results in a new panel
-5. **Test History**: After running queries in separate tab mode, use "OpenSearch: Show Query History" to view past queries
-6. **Test Hover**: Hover over query blocks to see metadata and validation info
+5. **Test Failed Requests**: Use the debug test queries above to verify Raw Request/Response tabs appear on failures
+6. **Test History**: After running queries in separate tab mode, use "OpenSearch: Show Query History" to view past queries
+7. **Test Hover**: Hover over query blocks to see metadata and validation info
 
 ## Expected Behavior
 

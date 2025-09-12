@@ -105,9 +105,61 @@ export class ResultsProvider {
         let output = `\n${ResultsProvider.RESULTS_START}\n`;
         output += `**OpenSearch Query Results** (${timestamp})\n\n`;
 
+
         if (!result.success) {
             output += `❌ **Error**: ${result.error}\n`;
             output += `**Execution Time**: ${result.executionTime}ms\n\n`;
+            
+            // Add Raw Request information for failed requests
+            if (result.requestInfo) {
+                output += `**Raw Request**:\n`;
+                const { method, endpoint, headers, body } = result.requestInfo;
+                
+                // Format HTTP request
+                let rawRequest = `${method || 'POST'} ${endpoint || '/'} HTTP/1.1\n`;
+                if (headers) {
+                    Object.entries(headers).forEach(([key, value]) => {
+                        rawRequest += `${key}: ${value}\n`;
+                    });
+                }
+                rawRequest += '\n'; // Empty line between headers and body
+                if (body) {
+                    rawRequest += body;
+                }
+                
+                output += '```http\n';
+                output += rawRequest;
+                output += '\n```\n\n';
+            }
+            
+            // Add Raw Response information for failed requests
+            if (result.responseInfo || result.rawResponse) {
+                output += `**Raw Response**:\n`;
+                
+                if (result.responseInfo) {
+                    const { status, statusText, headers } = result.responseInfo;
+                    
+                    // Format HTTP response
+                    let rawResponse = `HTTP/1.1 ${status || 500} ${statusText || 'Internal Server Error'}\n`;
+                    if (headers) {
+                        Object.entries(headers).forEach(([key, value]) => {
+                            rawResponse += `${key}: ${value}\n`;
+                        });
+                    }
+                    rawResponse += '\n'; // Empty line between headers and body
+                    if (result.rawResponse) {
+                        rawResponse += JSON.stringify(result.rawResponse, null, 2);
+                    }
+                    
+                    output += '```http\n';
+                    output += rawResponse;
+                    output += '\n```\n\n';
+                } else if (result.rawResponse) {
+                    output += '```json\n';
+                    output += JSON.stringify(result.rawResponse, null, 2);
+                    output += '\n```\n\n';
+                }
+            }
         } else {
             output += `✅ **Query executed successfully**\n`;
             output += `**Query Type**: ${queryType.toUpperCase()}\n`;
@@ -302,6 +354,17 @@ export class ResultsProvider {
                 .tab-content.active {
                     display: block;
                 }
+                .debug-section {
+                    margin-top: 10px;
+                }
+                .debug-item {
+                    margin-bottom: 20px;
+                }
+                .debug-item h3 {
+                    margin: 0 0 10px 0;
+                    color: var(--vscode-foreground);
+                    font-size: 1.1em;
+                }
             </style>
         </head>
         <body>
@@ -339,18 +402,36 @@ export class ResultsProvider {
     }
 
     private generateResultContent(result: QueryResult): string {
-        const debugSection = this.generateDebugSection(result);
+        const rawRequestSection = this.generateRawRequestSection(result);
+        const rawResponseSection = this.generateRawResponseSection(result);
         
         if (!result.success) {
+            // For errors, show Error tab, Raw Request, and Raw Response tabs
             return `
                 <div class="metadata">
                     <span class="metadata-item error">❌ Error</span>
                     <span class="metadata-item">⏱️ ${result.executionTime}ms</span>
                 </div>
-                <div class="json-container">
-                    <pre>${result.error}</pre>
+                
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('error')">Error Details</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
                 </div>
-                ${debugSection}
+                
+                <div id="error" class="tab-content active">
+                    <div class="json-container">
+                        <pre>${result.error}</pre>
+                    </div>
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
             `;
         }
 
@@ -363,7 +444,26 @@ export class ResultsProvider {
         `;
 
         if (!result.data) {
-            return metadata + '<p>No results found</p>' + debugSection;
+            // For successful requests with no data, show JSON, Raw Request, and Raw Response tabs
+            return metadata + `
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('json')">JSON View</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
+                </div>
+                
+                <div id="json" class="tab-content active">
+                    <p>No results found</p>
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
+            `;
         }
 
         const hasTableData = Array.isArray(result.data) && result.data.length > 0;
@@ -375,7 +475,8 @@ export class ResultsProvider {
                 <div class="tabs">
                     <div class="tab active" onclick="showTab('table')">Table View</div>
                     <div class="tab" onclick="showTab('json')">JSON View</div>
-                    <div class="tab" onclick="showTab('debug')">Debug</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
                 </div>
                 
                 <div id="table" class="tab-content active">
@@ -388,15 +489,20 @@ export class ResultsProvider {
                     </div>
                 </div>
                 
-                <div id="debug" class="tab-content">
-                    ${debugSection}
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
                 </div>
             `;
         } else {
             content += `
                 <div class="tabs">
                     <div class="tab active" onclick="showTab('json')">JSON View</div>
-                    <div class="tab" onclick="showTab('debug')">Debug</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
                 </div>
                 
                 <div id="json" class="tab-content active">
@@ -405,8 +511,12 @@ export class ResultsProvider {
                     </div>
                 </div>
                 
-                <div id="debug" class="tab-content">
-                    ${debugSection}
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
                 </div>
             `;
         }
@@ -414,8 +524,146 @@ export class ResultsProvider {
         return content;
     }
 
+    private generateRawRequestSection(result: QueryResult): string {
+        if (!result.requestInfo) {
+            return `
+                <div class="debug-section">
+                    <div class="debug-item">
+                        <h3>📤 Raw HTTP Request</h3>
+                        <div class="json-container">
+                            <pre>No request information available</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const { method, endpoint, headers, body } = result.requestInfo;
+        
+        // Format HTTP headers
+        let headersText = '';
+        if (headers) {
+            Object.entries(headers).forEach(([key, value]) => {
+                headersText += `${key}: ${value}\n`;
+            });
+        }
+
+        // Build the raw HTTP request
+        let rawRequest = `${method || 'POST'} ${endpoint || '/'} HTTP/1.1\n`;
+        if (headersText) {
+            rawRequest += headersText;
+        }
+        rawRequest += '\n'; // Empty line between headers and body
+        if (body) {
+            rawRequest += body;
+        }
+
+        return `
+            <div class="debug-section">
+                <div class="debug-item">
+                    <h3>📤 Raw HTTP Request</h3>
+                    <div class="json-container">
+                        <pre>${rawRequest}</pre>
+                    </div>
+                </div>
+                <div class="debug-item">
+                    <h3>🔧 Request Details</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.requestInfo, null, 2)}</pre>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    private generateRawResponseSection(result: QueryResult): string {
+        if (!result.responseInfo && !result.rawResponse) {
+            return `
+                <div class="debug-section">
+                    <div class="debug-item">
+                        <h3>📥 Raw HTTP Response</h3>
+                        <div class="json-container">
+                            <pre>No response information available</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let content = '<div class="debug-section">';
+
+        // Add raw HTTP response if we have response info
+        if (result.responseInfo) {
+            const { status, statusText, headers } = result.responseInfo;
+            
+            // Format HTTP headers
+            let headersText = '';
+            if (headers) {
+                Object.entries(headers).forEach(([key, value]) => {
+                    headersText += `${key}: ${value}\n`;
+                });
+            }
+
+            // Build the raw HTTP response
+            let rawResponse = `HTTP/1.1 ${status || 200} ${statusText || 'OK'}\n`;
+            if (headersText) {
+                rawResponse += headersText;
+            }
+            rawResponse += '\n'; // Empty line between headers and body
+            if (result.rawResponse) {
+                rawResponse += JSON.stringify(result.rawResponse, null, 2);
+            }
+
+            content += `
+                <div class="debug-item">
+                    <h3>📥 Raw HTTP Response</h3>
+                    <div class="json-container">
+                        <pre>${rawResponse}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add response details
+        if (result.responseInfo) {
+            content += `
+                <div class="debug-item">
+                    <h3>🔧 Response Details</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.responseInfo, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add raw response body
+        if (result.rawResponse) {
+            content += `
+                <div class="debug-item">
+                    <h3>📄 Response Body</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.rawResponse, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        content += '</div>';
+        return content;
+    }
+
     private generateDebugSection(result: QueryResult): string {
         let debugContent = '<div class="debug-section">';
+        
+        // Add complete QueryResult object for debugging
+        debugContent += `
+            <div class="debug-item">
+                <h3>🔍 Complete Query Result</h3>
+                <div class="json-container">
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                </div>
+            </div>
+        `;
         
         // Add request information if available
         if (result.requestInfo) {
@@ -424,6 +672,15 @@ export class ResultsProvider {
                     <h3>📤 Request Details</h3>
                     <div class="json-container">
                         <pre>${JSON.stringify(result.requestInfo, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        } else {
+            debugContent += `
+                <div class="debug-item">
+                    <h3>📤 Request Details</h3>
+                    <div class="json-container">
+                        <pre>No request information available</pre>
                     </div>
                 </div>
             `;
@@ -436,6 +693,15 @@ export class ResultsProvider {
                     <h3>📥 Raw Response</h3>
                     <div class="json-container">
                         <pre>${JSON.stringify(result.rawResponse, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        } else {
+            debugContent += `
+                <div class="debug-item">
+                    <h3>📥 Raw Response</h3>
+                    <div class="json-container">
+                        <pre>No raw response available</pre>
                     </div>
                 </div>
             `;

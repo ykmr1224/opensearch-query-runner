@@ -1,4 +1,12 @@
 {
   "opensearch.endpoint": "http://localhost:9201",
-  "opensearch.auth.type": "none"
+  "opensearch.auth.type": "none",
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#8B0000",
+    "activityBar.foreground": "#FFFCFC",
+    "titleBar.activeBackground": "#8B0000",
+    "titleBar.activeForeground": "#FFFCFC",
+    "titleBar.inactiveBackground": "#A00000",
+    "titleBar.inactiveForeground": "#FFFCFC"
+  }
 }

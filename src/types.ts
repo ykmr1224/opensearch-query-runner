@@ -42,6 +42,11 @@ export interface QueryResult {
         headers?: Record<string, string>;
         body?: string;
     };
+    responseInfo?: {
+        status?: number;
+        statusText?: string;
+        headers?: Record<string, string>;
+    };
 }
 
 export interface QueryHistoryItem {

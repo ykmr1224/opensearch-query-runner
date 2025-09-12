@@ -76,6 +76,30 @@ export class ConnectionManager {
         return this.config;
     }
 
+    private getAuthHeaders(): Record<string, string> {
+        if (!this.config) {
+            return {};
+        }
+
+        const headers: Record<string, string> = {};
+        
+        switch (this.config.auth.type) {
+            case 'basic':
+                if (this.config.auth.username && this.config.auth.password) {
+                    const credentials = Buffer.from(`${this.config.auth.username}:${this.config.auth.password}`).toString('base64');
+                    headers['Authorization'] = `Basic ${credentials}`;
+                }
+                break;
+            case 'apikey':
+                if (this.config.auth.apiKey) {
+                    headers['Authorization'] = `ApiKey ${this.config.auth.apiKey}`;
+                }
+                break;
+        }
+        
+        return headers;
+    }
+
     public async testConnection(): Promise<ConnectionTestResult> {
         if (!this.axiosInstance) {
             return {
@@ -101,7 +125,7 @@ export class ConnectionManager {
         }
     }
 
-    public async executeQuery(query: string, queryType: 'sql' | 'ppl'): Promise<OpenSearchResponse> {
+    public async executeQuery(query: string, queryType: 'sql' | 'ppl'): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
         if (!this.axiosInstance) {
             throw new Error('No connection configured');
         }
@@ -111,22 +135,58 @@ export class ConnectionManager {
 
         try {
             const response = await this.axiosInstance.post(endpoint, payload);
-            return response.data;
+            
+            // Add detailed request and response info
+            const result = response.data;
+            result.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders()
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            result.responseInfo = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+            };
+            
+            return result;
         } catch (error: any) {
-            if (error.response?.data) {
-                return {
-                    error: {
-                        type: error.response.data.error?.type || 'RequestError',
-                        reason: error.response.data.error?.reason || error.message,
-                        details: JSON.stringify(error.response.data, null, 2)
-                    }
+            const errorResponse: any = {
+                error: {
+                    type: error.response?.data?.error?.type || 'RequestError',
+                    reason: error.response?.data?.error?.reason || error.message,
+                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+                }
+            };
+            
+            // Add request info even for errors
+            errorResponse.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeaders()
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            
+            if (error.response) {
+                errorResponse.responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
                 };
             }
-            throw error;
+            
+            return errorResponse;
         }
     }
 
-    public async executeApiOperation(method: string, endpoint: string, body?: string): Promise<OpenSearchResponse & { requestInfo?: any }> {
+    public async executeApiOperation(method: string, endpoint: string, body?: string): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
         if (!this.axiosInstance) {
             throw new Error('No connection configured');
         }
@@ -162,24 +222,32 @@ export class ConnectionManager {
                 }
             }
 
+            const requestHeaders = {
+                'Content-Type': contentType,
+                ...this.getAuthHeaders()
+            };
+
             const requestConfig = {
                 method: method.toLowerCase(),
                 url: endpoint,
                 data: requestBody,
-                headers: {
-                    'Content-Type': contentType
-                }
+                headers: requestHeaders
             };
 
             const response = await this.axiosInstance.request(requestConfig);
 
-            // Add request info to the response for debugging
+            // Add detailed request and response info
             const result = response.data;
             result.requestInfo = {
                 method: method.toUpperCase(),
                 endpoint: endpoint,
-                headers: requestConfig.headers,
-                body: body
+                headers: requestHeaders,
+                body: body || ''
+            };
+            result.responseInfo = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
             };
 
             return result;
@@ -204,6 +272,11 @@ export class ConnectionManager {
                 }
             }
 
+            const requestHeaders = {
+                'Content-Type': contentType,
+                ...this.getAuthHeaders()
+            };
+
             const errorResponse: any = {
                 error: {
                     type: error.response?.data?.error?.type || 'RequestError',
@@ -216,9 +289,19 @@ export class ConnectionManager {
             errorResponse.requestInfo = {
                 method: method.toUpperCase(),
                 endpoint: endpoint,
-                headers: { 'Content-Type': contentType },
-                body: body
+                headers: requestHeaders,
+                body: body || ''
             };
+
+            if (error.response) {
+                errorResponse.responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
+                };
+                errorResponse.rawResponse = error.response.data;
+            }
+
 
             return errorResponse;
         }

@@ -40,3 +40,14 @@ The project includes convenient npm scripts for development:
 2. Run `npm run reinstall` (or `npm run dev`)
 3. Test the changes in VSCode
 4. Repeat as needed
+
+## Notes Directory
+
+The `notes/` directory is used for development notes and documentation that should not be committed to version control. This includes:
+
+- Bug fix documentation
+- Development notes
+- Investigation findings
+- Temporary documentation
+
+The `notes/` directory is excluded from git via `.gitignore`.
