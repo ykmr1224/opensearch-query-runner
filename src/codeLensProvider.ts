@@ -42,13 +42,6 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
                 0
             );
 
-            // Add main "Run Query" command
-            const runQueryLens = new vscode.CodeLens(range, {
-                title: '$(play) Run Query',
-                command: 'opensearch-query.runQuery',
-                arguments: [document.uri, queryBlock.range.start]
-            });
-
             // Add "Run Inline" command
             const runInlineLens = new vscode.CodeLens(range, {
                 title: '$(output) Inline',
@@ -63,17 +56,7 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
                 arguments: [document.uri, queryBlock.range.start]
             });
 
-            codeLenses.push(runQueryLens, runInlineLens, runInTabLens);
-
-            // Add query type and validation info
-            const queryInfo = this.getQueryInfo(queryBlock);
-            if (queryInfo) {
-                const infoLens = new vscode.CodeLens(range, {
-                    title: queryInfo,
-                    command: ''
-                });
-                codeLenses.push(infoLens);
-            }
+            codeLenses.push(runInlineLens, runInTabLens);
         }
 
         return codeLenses;
@@ -86,37 +69,6 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
         return codeLens;
     }
 
-    private getQueryInfo(queryBlock: QueryBlock): string | null {
-        const parts: string[] = [];
-
-        // Add query type
-        parts.push(`${queryBlock.type.toUpperCase()}`);
-
-        // Add metadata info if available
-        if (queryBlock.metadata) {
-            if (queryBlock.metadata.connection) {
-                parts.push(`Connection: ${queryBlock.metadata.connection}`);
-            }
-            if (queryBlock.metadata.timeout) {
-                parts.push(`Timeout: ${queryBlock.metadata.timeout}ms`);
-            }
-            if (queryBlock.metadata.description) {
-                parts.push(`Description: ${queryBlock.metadata.description}`);
-            }
-        }
-
-        // Add query validation
-        const validation = MarkdownParser.validateQuery(queryBlock.content, queryBlock.type, queryBlock.metadata);
-        if (!validation.valid) {
-            parts.push(`⚠️ ${validation.error}`);
-        }
-
-        // Add query preview
-        const preview = MarkdownParser.getQueryPreview(queryBlock.content, 30);
-        parts.push(`"${preview}"`);
-
-        return parts.length > 1 ? parts.join(' | ') : null;
-    }
 
     public refresh(): void {
         this._onDidChangeCodeLenses.fire();
