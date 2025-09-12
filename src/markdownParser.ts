@@ -197,13 +197,35 @@ export class MarkdownParser {
             
             // For methods that typically have request bodies, validate JSON if content exists
             if (['POST', 'PUT'].includes(metadata.method.toUpperCase()) && trimmedContent) {
-                try {
-                    JSON.parse(trimmedContent);
-                } catch (error) {
-                    return { 
-                        valid: false, 
-                        error: 'Invalid JSON in request body' 
-                    };
+                // Check if this is a bulk operation
+                const isBulkOperation = metadata.endpoint?.includes('/_bulk');
+                
+                if (isBulkOperation) {
+                    // For bulk operations, validate each line as JSON (NDJSON format)
+                    const lines = trimmedContent.split('\n');
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine) { // Skip empty lines
+                            try {
+                                JSON.parse(trimmedLine);
+                            } catch (error) {
+                                return { 
+                                    valid: false, 
+                                    error: `Invalid JSON in bulk request line: ${trimmedLine}` 
+                                };
+                            }
+                        }
+                    }
+                } else {
+                    // For regular operations, validate as single JSON object
+                    try {
+                        JSON.parse(trimmedContent);
+                    } catch (error) {
+                        return { 
+                            valid: false, 
+                            error: 'Invalid JSON in request body' 
+                        };
+                    }
                 }
             }
         }

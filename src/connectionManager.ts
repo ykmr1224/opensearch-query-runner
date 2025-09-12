@@ -191,49 +191,66 @@ export class ConnectionManager {
             throw new Error('No connection configured');
         }
 
-        try {
-            let requestBody: any = undefined;
-            let contentType = 'application/json';
+        // Determine if this is a bulk operation and prepare request body
+        let requestBody: any = undefined;
+        let contentType = 'application/json';
+        
+        if (body && body.trim()) {
+            // Check if this is a bulk operation
+            const isBulkOperation = endpoint.includes('/_bulk');
             
-            if (body && body.trim()) {
-                // Check if this is a bulk operation (contains newline-delimited JSON)
-                const isBulkOperation = endpoint.includes('/_bulk') || 
-                    (body.includes('\n') && body.split('\n').every(line => {
-                        if (!line.trim()) return true; // Allow empty lines
+            if (isBulkOperation) {
+                // For bulk operations, ensure proper NDJSON format
+                // Each line should be a valid JSON object, and the body should end with a newline
+                let processedBody = body.trim();
+                
+                // Validate that each non-empty line is valid JSON
+                const lines = processedBody.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) { // Skip empty lines
                         try {
-                            JSON.parse(line);
-                            return true;
-                        } catch {
-                            return false;
+                            JSON.parse(line.trim());
+                        } catch (error) {
+                            throw new Error(`Invalid JSON in bulk request line: ${line.trim()}`);
                         }
-                    }));
-
-                if (isBulkOperation) {
-                    // For bulk operations, use the raw body as string with NDJSON content type
-                    requestBody = body;
-                    contentType = 'application/x-ndjson';
-                } else {
-                    // For regular JSON operations, parse the body
-                    try {
-                        requestBody = JSON.parse(body);
-                    } catch (error) {
-                        throw new Error('Invalid JSON in request body');
                     }
                 }
+                
+                // Ensure the body ends with a newline (required for bulk API)
+                if (!processedBody.endsWith('\n')) {
+                    processedBody += '\n';
+                }
+                
+                requestBody = processedBody;
+                contentType = 'application/x-ndjson';
+            } else {
+                // For regular JSON operations, parse the body to validate it
+                try {
+                    requestBody = JSON.parse(body);
+                } catch (error) {
+                    throw new Error('Invalid JSON in request body');
+                }
             }
+        }
 
-            const requestHeaders = {
-                'Content-Type': contentType,
-                ...this.getAuthHeaders()
-            };
+        const requestHeaders = {
+            'Content-Type': contentType,
+            ...this.getAuthHeaders()
+        };
 
-            const requestConfig = {
-                method: method.toLowerCase(),
-                url: endpoint,
-                data: requestBody,
-                headers: requestHeaders
-            };
+        const requestConfig: any = {
+            method: method.toLowerCase(),
+            url: endpoint,
+            data: requestBody,
+            headers: requestHeaders
+        };
 
+        // For bulk operations, prevent axios from transforming the request data
+        if (endpoint.includes('/_bulk')) {
+            requestConfig.transformRequest = [(data: any) => data]; // Keep data as-is
+        }
+
+        try {
             const response = await this.axiosInstance.request(requestConfig);
 
             // Add detailed request and response info
@@ -252,40 +269,16 @@ export class ConnectionManager {
 
             return result;
         } catch (error: any) {
-            let contentType = 'application/json';
-            
-            // Determine content type for error reporting
-            if (body && body.trim()) {
-                const isBulkOperation = endpoint.includes('/_bulk') || 
-                    (body.includes('\n') && body.split('\n').every(line => {
-                        if (!line.trim()) return true;
-                        try {
-                            JSON.parse(line);
-                            return true;
-                        } catch {
-                            return false;
-                        }
-                    }));
-                
-                if (isBulkOperation) {
-                    contentType = 'application/x-ndjson';
-                }
-            }
-
-            const requestHeaders = {
-                'Content-Type': contentType,
-                ...this.getAuthHeaders()
-            };
-
+            // Create error response with detailed request/response info
             const errorResponse: any = {
                 error: {
-                    type: error.response?.data?.error?.type || 'RequestError',
+                    type: error.response?.data?.error?.type || error.code || 'RequestError',
                     reason: error.response?.data?.error?.reason || error.message,
                     details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
                 }
             };
 
-            // Add request info even for errors
+            // Always add request info, even for errors
             errorResponse.requestInfo = {
                 method: method.toUpperCase(),
                 endpoint: endpoint,
@@ -293,6 +286,7 @@ export class ConnectionManager {
                 body: body || ''
             };
 
+            // Add response info if available
             if (error.response) {
                 errorResponse.responseInfo = {
                     status: error.response.status,
@@ -301,7 +295,6 @@ export class ConnectionManager {
                 };
                 errorResponse.rawResponse = error.response.data;
             }
-
 
             return errorResponse;
         }
