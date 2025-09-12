@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
-import { QueryBlock, QueryMetadata } from './types';
+import { QueryBlock, QueryMetadata, ConnectionOverrides, ConfigurationBlock } from './types';
 
 export class MarkdownParser {
     private static readonly CODE_BLOCK_REGEX = /^```(sql|ppl|opensearch-api)\s*\n([\s\S]*?)^```/gm;
+    private static readonly CONFIG_BLOCK_REGEX = /^```(config|opensearch-config|connection)\s*\n([\s\S]*?)^```/gm;
     private static readonly METADATA_REGEX = /^--\s*(\w+):\s*(.+)$/gm;
+    private static readonly CONFIG_VAR_REGEX = /^@(\w+)\s*=\s*['"]([^'"]*)['"]\s*$/;
 
     public static parseDocument(document: vscode.TextDocument): QueryBlock[] {
         const text = document.getText();
@@ -23,10 +25,29 @@ export class MarkdownParser {
             
             // For opensearch-api, we need metadata even if content is empty
             if (cleanContent.trim() || (queryType === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
+                // Create range - handle test environment where vscode.Range might not be available
+                let range: vscode.Range;
+                try {
+                    range = new vscode.Range(startPos, endPos);
+                } catch {
+                    // Fallback for test environment
+                    range = {
+                        start: startPos,
+                        end: endPos,
+                        contains: () => false,
+                        intersection: () => undefined,
+                        isEmpty: false,
+                        isSingleLine: startPos.line === endPos.line,
+                        isEqual: () => false,
+                        union: () => range,
+                        with: () => range
+                    } as vscode.Range;
+                }
+                
                 queryBlocks.push({
                     type: queryType,
                     content: cleanContent,
-                    range: new vscode.Range(startPos, endPos),
+                    range,
                     metadata
                 });
             }
@@ -54,18 +75,18 @@ export class MarkdownParser {
         for (const line of lines) {
             const trimmedLine = line.trim();
             
-            // Skip empty lines and metadata comments
-            if (!trimmedLine || this.isMetadataComment(trimmedLine)) {
+            // Skip empty lines and metadata comments (but preserve regular comments)
+            if (!trimmedLine) {
                 continue;
             }
             
-            // For opensearch-api, preserve all non-metadata content including JSON
-            if (queryType === 'opensearch-api') {
-                queryLines.push(line);
-            } else {
-                // Skip regular comments but preserve them in SQL/PPL queries
-                queryLines.push(line);
+            // Skip metadata comments (like -- Description: ..., -- Method: ..., etc.)
+            if (this.isMetadataComment(trimmedLine)) {
+                continue;
             }
+            
+            // For all query types, preserve the line (including regular comments)
+            queryLines.push(line);
         }
         
         return queryLines.join('\n').trim();
@@ -153,25 +174,7 @@ export class MarkdownParser {
             return { valid: false, error: 'Query cannot be empty' };
         }
         
-        if (type === 'sql') {
-            // Basic SQL validation
-            const sqlKeywords = /^\s*(SELECT|WITH|SHOW|DESCRIBE|EXPLAIN)\s+/i;
-            if (!sqlKeywords.test(trimmedContent)) {
-                return { 
-                    valid: false, 
-                    error: 'SQL query must start with SELECT, WITH, SHOW, DESCRIBE, or EXPLAIN' 
-                };
-            }
-        } else if (type === 'ppl') {
-            // Basic PPL validation
-            const pplKeywords = /^\s*(source|search)\s*=/i;
-            if (!pplKeywords.test(trimmedContent)) {
-                return { 
-                    valid: false, 
-                    error: 'PPL query must start with source= or search=' 
-                };
-            }
-        } else if (type === 'opensearch-api') {
+        if (type === 'opensearch-api') {
             // API validation
             if (!metadata?.method) {
                 return { 
@@ -266,5 +269,233 @@ export class MarkdownParser {
         }
         
         return cleanContent.substring(0, maxLength - 3) + '...';
+    }
+
+    /**
+     * Parse configuration blocks from the document
+     */
+    public static parseConfigurationBlocks(document: vscode.TextDocument): ConfigurationBlock[] {
+        const text = document.getText();
+        const configBlocks: ConfigurationBlock[] = [];
+        
+        let match;
+        const regex = new RegExp(this.CONFIG_BLOCK_REGEX);
+        
+        while ((match = regex.exec(text)) !== null) {
+            const [fullMatch, , content] = match;
+            const startPos = document.positionAt(match.index);
+            const endPos = document.positionAt(match.index + fullMatch.length);
+            
+            const config = this.parseConnectionOverrides(content);
+            
+            if (Object.keys(config).length > 0) {
+                // Create range - handle test environment where vscode.Range might not be available
+                let range: vscode.Range;
+                try {
+                    range = new vscode.Range(startPos, endPos);
+                } catch {
+                    // Fallback for test environment
+                    range = {
+                        start: startPos,
+                        end: endPos,
+                        contains: () => false,
+                        intersection: () => undefined,
+                        isEmpty: false,
+                        isSingleLine: startPos.line === endPos.line,
+                        isEqual: () => false,
+                        union: () => range,
+                        with: () => range
+                    } as vscode.Range;
+                }
+                
+                configBlocks.push({
+                    config,
+                    range,
+                    position: match.index
+                });
+            }
+        }
+        
+        return configBlocks;
+    }
+
+    /**
+     * Parse connection override variables from configuration block content
+     */
+    private static parseConnectionOverrides(content: string): ConnectionOverrides {
+        const overrides: ConnectionOverrides = {};
+        const lines = content.split('\n');
+        
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            if (!trimmedLine) {
+                continue;
+            }
+            
+            const match = trimmedLine.match(this.CONFIG_VAR_REGEX);
+            if (match) {
+                const [, key, value] = match;
+                
+                switch (key.toLowerCase()) {
+                    case 'endpoint':
+                        overrides.endpoint = value;
+                        break;
+                    case 'auth_type':
+                    case 'authtype':
+                        if (!overrides.auth) {
+                            overrides.auth = {};
+                        }
+                        const authType = value.toLowerCase();
+                        if (['none', 'basic', 'apikey'].includes(authType)) {
+                            overrides.auth.type = authType as 'none' | 'basic' | 'apikey';
+                        }
+                        break;
+                    case 'username':
+                        if (!overrides.auth) {
+                            overrides.auth = {};
+                        }
+                        overrides.auth.username = value;
+                        break;
+                    case 'password':
+                        if (!overrides.auth) {
+                            overrides.auth = {};
+                        }
+                        overrides.auth.password = value;
+                        break;
+                    case 'api_key':
+                    case 'apikey':
+                        if (!overrides.auth) {
+                            overrides.auth = {};
+                        }
+                        overrides.auth.apiKey = value;
+                        break;
+                    case 'timeout':
+                        const timeoutValue = this.parseTimeout(value);
+                        if (timeoutValue) {
+                            overrides.timeout = timeoutValue;
+                        }
+                        break;
+                }
+            }
+        }
+        
+        return overrides;
+    }
+
+    /**
+     * Enhanced parseDocument that includes connection overrides
+     */
+    public static parseDocumentWithOverrides(document: vscode.TextDocument): QueryBlock[] {
+        const queryBlocks = this.parseDocument(document);
+        const configBlocks = this.parseConfigurationBlocks(document);
+        
+        // Apply connection overrides to each query block
+        for (const queryBlock of queryBlocks) {
+            const overrides = this.resolveConfigurationForQuery(document, queryBlock.range.start, configBlocks);
+            if (overrides) {
+                queryBlock.connectionOverrides = overrides;
+            }
+        }
+        
+        return queryBlocks;
+    }
+
+    /**
+     * Find the closest preceding configuration block for a query
+     */
+    private static resolveConfigurationForQuery(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        configBlocks: ConfigurationBlock[]
+    ): ConnectionOverrides | null {
+        // Calculate the actual position of the query in the document
+        const queryStartPosition = position.line * 10000 + position.character;
+        
+        // Find config blocks that appear before this query
+        const precedingConfigs = configBlocks
+            .filter(config => {
+                // Calculate config block position in the same way
+                const configPosition = config.range.start.line * 10000 + config.range.start.character;
+                return configPosition < queryStartPosition;
+            })
+            .sort((a, b) => {
+                const aPos = a.range.start.line * 10000 + a.range.start.character;
+                const bPos = b.range.start.line * 10000 + b.range.start.character;
+                return bPos - aPos; // Closest first
+            });
+        
+        return precedingConfigs[0]?.config || null;
+    }
+
+    /**
+     * Resolve configuration for a query at a specific position (public method for external use)
+     */
+    public static resolveConfigurationForQueryAtPosition(
+        content: string,
+        position: vscode.Position
+    ): ConnectionOverrides | null {
+        // Create a mock document for parsing
+        const mockDocument = {
+            getText: () => content,
+            positionAt: (offset: number) => {
+                const lines = content.substring(0, offset).split('\n');
+                const line = lines.length - 1;
+                const character = lines[lines.length - 1].length;
+                return { line, character } as vscode.Position;
+            }
+        } as vscode.TextDocument;
+
+        const configBlocks = this.parseConfigurationBlocks(mockDocument);
+        return this.resolveConfigurationForQuery(mockDocument, position, configBlocks);
+    }
+
+    /**
+     * Enhanced findQueryBlockAtPosition that includes connection overrides
+     */
+    public static findQueryBlockAtPositionWithOverrides(
+        document: vscode.TextDocument, 
+        position: vscode.Position
+    ): QueryBlock | null {
+        const queryBlocks = this.parseDocumentWithOverrides(document);
+        
+        for (const block of queryBlocks) {
+            if (block.range.contains(position)) {
+                return block;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Validate connection overrides
+     */
+    public static validateConnectionOverrides(overrides: ConnectionOverrides): { valid: boolean; error?: string } {
+        if (overrides.endpoint) {
+            try {
+                new URL(overrides.endpoint);
+            } catch {
+                return { valid: false, error: `Invalid endpoint URL: ${overrides.endpoint}` };
+            }
+        }
+        
+        if (overrides.auth?.type === 'basic') {
+            if (!overrides.auth.username || !overrides.auth.password) {
+                return { valid: false, error: 'Basic auth requires both username and password' };
+            }
+        }
+        
+        if (overrides.auth?.type === 'apikey') {
+            if (!overrides.auth.apiKey) {
+                return { valid: false, error: 'API key auth requires api_key' };
+            }
+        }
+        
+        if (overrides.timeout && (overrides.timeout < 1000 || overrides.timeout > 300000)) {
+            return { valid: false, error: 'Timeout must be between 1000ms and 300000ms (5 minutes)' };
+        }
+        
+        return { valid: true };
     }
 }

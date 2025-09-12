@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { OpenSearchConfig, ConnectionTestResult, OpenSearchResponse } from './types';
+import { OpenSearchConfig, ConnectionTestResult, OpenSearchResponse, ConnectionOverrides } from './types';
 
 export class ConnectionManager {
     private axiosInstance: AxiosInstance | null = null;
@@ -315,6 +315,309 @@ export class ConnectionManager {
             return 'Network error: Unable to connect to OpenSearch cluster';
         } else {
             return error.message || 'Unknown error occurred';
+        }
+    }
+
+    /**
+     * Create a temporary axios instance with connection overrides
+     */
+    private createAxiosInstanceWithOverrides(overrides: ConnectionOverrides): AxiosInstance {
+        if (!this.config) {
+            throw new Error('No base configuration available');
+        }
+
+        // Merge base config with overrides
+        const mergedConfig = {
+            endpoint: overrides.endpoint || this.config.endpoint,
+            auth: {
+                type: overrides.auth?.type || this.config.auth.type,
+                username: overrides.auth?.username || this.config.auth.username,
+                password: overrides.auth?.password || this.config.auth.password,
+                apiKey: overrides.auth?.apiKey || this.config.auth.apiKey
+            },
+            timeout: overrides.timeout || this.config.timeout
+        };
+
+        const axiosConfig: AxiosRequestConfig = {
+            baseURL: mergedConfig.endpoint,
+            timeout: mergedConfig.timeout,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        // Configure authentication with merged config
+        switch (mergedConfig.auth.type) {
+            case 'basic':
+                if (mergedConfig.auth.username && mergedConfig.auth.password) {
+                    axiosConfig.auth = {
+                        username: mergedConfig.auth.username,
+                        password: mergedConfig.auth.password
+                    };
+                }
+                break;
+            case 'apikey':
+                if (mergedConfig.auth.apiKey) {
+                    axiosConfig.headers = {
+                        ...axiosConfig.headers,
+                        'Authorization': `ApiKey ${mergedConfig.auth.apiKey}`
+                    };
+                }
+                break;
+        }
+
+        return axios.create(axiosConfig);
+    }
+
+    /**
+     * Get auth headers for a specific configuration (with overrides)
+     */
+    private getAuthHeadersWithOverrides(overrides?: ConnectionOverrides): Record<string, string> {
+        if (!this.config) {
+            return {};
+        }
+
+        const headers: Record<string, string> = {};
+        
+        // Merge auth config
+        const authType = overrides?.auth?.type || this.config.auth.type;
+        const username = overrides?.auth?.username || this.config.auth.username;
+        const password = overrides?.auth?.password || this.config.auth.password;
+        const apiKey = overrides?.auth?.apiKey || this.config.auth.apiKey;
+        
+        switch (authType) {
+            case 'basic':
+                if (username && password) {
+                    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+                    headers['Authorization'] = `Basic ${credentials}`;
+                }
+                break;
+            case 'apikey':
+                if (apiKey) {
+                    headers['Authorization'] = `ApiKey ${apiKey}`;
+                }
+                break;
+        }
+        
+        return headers;
+    }
+
+    /**
+     * Execute query with connection overrides
+     */
+    public async executeQueryWithOverrides(
+        query: string, 
+        queryType: 'sql' | 'ppl', 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        const endpoint = queryType === 'sql' ? '/_plugins/_sql' : '/_plugins/_ppl';
+        const payload = { query };
+
+        try {
+            const response = await axiosInstance.post(endpoint, payload);
+            
+            // Add detailed request and response info
+            const result = response.data;
+            result.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeadersWithOverrides(overrides)
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            result.responseInfo = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+            };
+            
+            return result;
+        } catch (error: any) {
+            const errorResponse: any = {
+                error: {
+                    type: error.response?.data?.error?.type || 'RequestError',
+                    reason: error.response?.data?.error?.reason || error.message,
+                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+                }
+            };
+            
+            // Add request info even for errors
+            errorResponse.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeadersWithOverrides(overrides)
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            
+            if (error.response) {
+                errorResponse.responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
+                };
+            }
+            
+            return errorResponse;
+        }
+    }
+
+    /**
+     * Execute API operation with connection overrides
+     */
+    public async executeApiOperationWithOverrides(
+        method: string, 
+        endpoint: string, 
+        body?: string, 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        // Determine if this is a bulk operation and prepare request body
+        let requestBody: any = undefined;
+        let contentType = 'application/json';
+        
+        if (body && body.trim()) {
+            // Check if this is a bulk operation
+            const isBulkOperation = endpoint.includes('/_bulk');
+            
+            if (isBulkOperation) {
+                // For bulk operations, ensure proper NDJSON format
+                let processedBody = body.trim();
+                
+                // Validate that each non-empty line is valid JSON
+                const lines = processedBody.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) { // Skip empty lines
+                        try {
+                            JSON.parse(line.trim());
+                        } catch (error) {
+                            throw new Error(`Invalid JSON in bulk request line: ${line.trim()}`);
+                        }
+                    }
+                }
+                
+                // Ensure the body ends with a newline (required for bulk API)
+                if (!processedBody.endsWith('\n')) {
+                    processedBody += '\n';
+                }
+                
+                requestBody = processedBody;
+                contentType = 'application/x-ndjson';
+            } else {
+                // For regular JSON operations, parse the body to validate it
+                try {
+                    requestBody = JSON.parse(body);
+                } catch (error) {
+                    throw new Error('Invalid JSON in request body');
+                }
+            }
+        }
+
+        const requestHeaders = {
+            'Content-Type': contentType,
+            ...this.getAuthHeadersWithOverrides(overrides)
+        };
+
+        const requestConfig: any = {
+            method: method.toLowerCase(),
+            url: endpoint,
+            data: requestBody,
+            headers: requestHeaders
+        };
+
+        // For bulk operations, prevent axios from transforming the request data
+        if (endpoint.includes('/_bulk')) {
+            requestConfig.transformRequest = [(data: any) => data]; // Keep data as-is
+        }
+
+        try {
+            const response = await axiosInstance.request(requestConfig);
+
+            // Add detailed request and response info
+            const result = response.data;
+            result.requestInfo = {
+                method: method.toUpperCase(),
+                endpoint: endpoint,
+                headers: requestHeaders,
+                body: body || ''
+            };
+            result.responseInfo = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+            };
+
+            return result;
+        } catch (error: any) {
+            // Create error response with detailed request/response info
+            const errorResponse: any = {
+                error: {
+                    type: error.response?.data?.error?.type || error.code || 'RequestError',
+                    reason: error.response?.data?.error?.reason || error.message,
+                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+                }
+            };
+
+            // Always add request info, even for errors
+            errorResponse.requestInfo = {
+                method: method.toUpperCase(),
+                endpoint: endpoint,
+                headers: requestHeaders,
+                body: body || ''
+            };
+
+            // Add response info if available
+            if (error.response) {
+                errorResponse.responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
+                };
+                errorResponse.rawResponse = error.response.data;
+            }
+
+            return errorResponse;
+        }
+    }
+
+    /**
+     * Test connection with overrides
+     */
+    public async testConnectionWithOverrides(overrides: ConnectionOverrides): Promise<ConnectionTestResult> {
+        try {
+            const axiosInstance = this.createAxiosInstanceWithOverrides(overrides);
+            const response = await axiosInstance.get('/_cluster/health');
+            const healthData = response.data;
+
+            return {
+                success: true,
+                clusterName: healthData.cluster_name,
+                version: healthData.version?.number
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: this.formatError(error)
+            };
         }
     }
 

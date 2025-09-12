@@ -11,6 +11,7 @@ A VSCode extension that allows you to execute SQL and PPL queries against OpenSe
 - 📚 **Query history** - Track and rerun previous queries (separate tab mode)
 - ⚙️ **Flexible authentication** - Support for basic auth, API keys, or no auth
 - 🔧 **Configuration management** - Easy setup through VSCode settings
+- 📋 **Per-document configuration** - Override connection settings within markdown files
 
 ## Quick Start
 
@@ -100,6 +101,74 @@ Configure the extension through VSCode settings:
 - **Basic**: Username and password authentication
 - **API Key**: API key authentication
 
+## Per-Document Configuration
+
+You can override connection settings within markdown documents using configuration blocks. This is perfect for working with multiple clusters or different authentication methods in a single document.
+
+### Configuration Block Syntax
+
+Create configuration blocks using `config`, `opensearch-config`, or `connection` language identifiers:
+
+````markdown
+```config
+@endpoint = 'http://localhost:9200'
+@auth_type = 'none'
+@timeout = '30s'
+```
+
+```sql
+-- This query uses the configuration above
+SELECT * FROM my_index LIMIT 10
+```
+````
+
+### Supported Configuration Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `@endpoint` | OpenSearch cluster URL | `@endpoint = 'http://localhost:9200'` |
+| `@auth_type` | Authentication type | `@auth_type = 'basic'` |
+| `@username` | Username for basic auth | `@username = 'admin'` |
+| `@password` | Password for basic auth | `@password = 'secret'` |
+| `@api_key` | API key for apikey auth | `@api_key = 'my-api-key'` |
+| `@timeout` | Request timeout | `@timeout = '30s'` |
+
+### Multi-Cluster Example
+
+````markdown
+# Development Environment
+```config
+@endpoint = 'http://localhost:9200'
+@auth_type = 'none'
+```
+
+```sql
+-- Query development cluster
+SELECT COUNT(*) FROM dev_logs
+```
+
+# Production Environment
+```config
+@endpoint = 'https://prod-cluster:9200'
+@auth_type = 'basic'
+@username = 'readonly'
+@password = 'secure_password'
+@timeout = '60s'
+```
+
+```sql
+-- Query production cluster with extended timeout
+SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
+```
+````
+
+### Configuration Cascade Behavior
+
+- Configuration blocks apply to all queries that follow them in the document
+- Each query uses the closest preceding configuration block
+- Falls back to global VSCode settings if no configuration block is found
+- Invalid configurations show clear error messages with validation details
+
 ## Commands
 
 - `OpenSearch: Run Query` - Execute query at cursor position
@@ -143,6 +212,9 @@ Initial release with core functionality:
 - Query history management
 - CodeLens integration
 - Authentication support
+- Per-document configuration blocks with `@variable = 'value'` syntax
+- Multi-cluster support with cascade behavior
+- Configuration validation and error handling
 
 ## Contributing
 

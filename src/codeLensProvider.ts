@@ -31,7 +31,7 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
         }
 
         const codeLenses: vscode.CodeLens[] = [];
-        const queryBlocks = MarkdownParser.parseDocument(document);
+        const queryBlocks = MarkdownParser.parseDocumentWithOverrides(document);
 
         for (const queryBlock of queryBlocks) {
             // Create CodeLens at the start of each query block
@@ -89,7 +89,7 @@ export class OpenSearchCodeActionProvider implements vscode.CodeActionProvider {
 
         const actions: vscode.CodeAction[] = [];
         const position = range.start;
-        const queryBlock = MarkdownParser.findQueryBlockAtPosition(document, position);
+        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
 
         if (queryBlock) {
             // Add "Run Query" action
@@ -167,7 +167,7 @@ export class OpenSearchHoverProvider implements vscode.HoverProvider {
             return null;
         }
 
-        const queryBlock = MarkdownParser.findQueryBlockAtPosition(document, position);
+        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
         if (!queryBlock) {
             return null;
         }
@@ -190,6 +190,24 @@ export class OpenSearchHoverProvider implements vscode.HoverProvider {
         }
 
         contents.push(typeInfo);
+
+        // Add connection override info
+        if (queryBlock.connectionOverrides) {
+            const overrideInfo = new vscode.MarkdownString();
+            overrideInfo.appendMarkdown('**Connection Overrides:**\n\n');
+            
+            if (queryBlock.connectionOverrides.endpoint) {
+                overrideInfo.appendMarkdown(`- Endpoint: \`${queryBlock.connectionOverrides.endpoint}\`\n`);
+            }
+            if (queryBlock.connectionOverrides.auth?.type) {
+                overrideInfo.appendMarkdown(`- Auth Type: \`${queryBlock.connectionOverrides.auth.type}\`\n`);
+            }
+            if (queryBlock.connectionOverrides.timeout) {
+                overrideInfo.appendMarkdown(`- Timeout: \`${queryBlock.connectionOverrides.timeout}ms\`\n`);
+            }
+            
+            contents.push(overrideInfo);
+        }
 
         // Add metadata info
         if (queryBlock.metadata && Object.keys(queryBlock.metadata).length > 0) {

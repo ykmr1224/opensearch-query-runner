@@ -20,6 +20,28 @@ This document demonstrates the major use cases of the OpenSearch Query Runner VS
 }
 ```
 
+### Per-Document Configuration (New Feature!)
+
+You can now override connection settings within markdown documents using configuration blocks. This is perfect for working with multiple clusters or different authentication methods:
+
+```config
+@endpoint = 'http://localhost:9201'
+@auth_type = 'none'
+@timeout = '30s'
+```
+
+**Configuration Variables:**
+- `@endpoint` - OpenSearch cluster URL
+- `@auth_type` - Authentication type: 'none', 'basic', 'apikey'
+- `@username` / `@password` - Basic authentication credentials
+- `@api_key` - API key for apikey authentication
+- `@timeout` - Request timeout (e.g., '30s', '5000ms', '2m')
+
+**How it works:**
+- Configuration blocks apply to all queries that follow them in the document
+- If you have multiple config blocks, each query uses the closest preceding configuration
+- Falls back to global VSCode settings if no configuration block is found
+
 ## Sample Data Setup
 
 First, let's create a simple logs index and add some sample data:
@@ -261,6 +283,52 @@ Add metadata to your queries:
 -- Description: What this query does
 -- Timeout: 30s
 SELECT * FROM sample_logs LIMIT 5
+```
+
+## Multi-Cluster Configuration Example
+
+Here's how to work with multiple OpenSearch clusters in a single document:
+
+```config
+@endpoint = 'http://localhost:9200'
+@auth_type = 'none'
+```
+
+```sql
+-- Description: Query development cluster
+SELECT COUNT(*) as dev_log_count FROM sample_logs
+```
+
+```config
+@endpoint = 'http://production-cluster:9200'
+@auth_type = 'basic'
+@username = 'readonly_user'
+@password = 'secure_password'
+@timeout = '60s'
+```
+
+```sql
+-- Description: Query production cluster (uses different connection)
+SELECT COUNT(*) as prod_log_count FROM production_logs
+```
+
+```opensearch-api
+-- Description: Check production cluster health
+-- Method: GET
+-- Endpoint: /_cluster/health
+```
+
+```config
+@endpoint = 'http://staging-cluster:9200'
+@auth_type = 'apikey'
+@api_key = 'staging-api-key-here'
+```
+
+```ppl
+-- Description: Analyze staging logs
+source=staging_logs 
+| stats count() by level 
+| sort count desc
 ```
 
 ## Common Use Cases

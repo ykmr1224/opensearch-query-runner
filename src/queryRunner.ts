@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { ConnectionManager } from './connectionManager';
 import { MarkdownParser } from './markdownParser';
-import { QueryResult, QueryBlock, OpenSearchResponse, DisplayMode } from './types';
+import { QueryResult, QueryBlock, OpenSearchResponse, DisplayMode, ConnectionOverrides } from './types';
 
 export class QueryRunner {
     private connectionManager: ConnectionManager;
@@ -14,11 +14,24 @@ export class QueryRunner {
         query: string, 
         queryType: 'sql' | 'ppl' | 'opensearch-api', 
         timeout?: number,
-        metadata?: any
+        metadata?: any,
+        connectionOverrides?: ConnectionOverrides
     ): Promise<QueryResult> {
         const startTime = Date.now();
 
         try {
+            // Validate connection overrides if provided
+            if (connectionOverrides) {
+                const overrideValidation = MarkdownParser.validateConnectionOverrides(connectionOverrides);
+                if (!overrideValidation.valid) {
+                    return {
+                        success: false,
+                        error: `Connection override error: ${overrideValidation.error}`,
+                        executionTime: Date.now() - startTime
+                    };
+                }
+            }
+
             // Validate query
             const validation = MarkdownParser.validateQuery(query, queryType, metadata);
             if (!validation.valid) {
@@ -40,13 +53,18 @@ export class QueryRunner {
                         executionTime: Date.now() - startTime
                     };
                 }
-                response = await this.connectionManager.executeApiOperation(
+                response = await this.connectionManager.executeApiOperationWithOverrides(
                     metadata.method, 
                     metadata.endpoint, 
-                    query
+                    query,
+                    connectionOverrides
                 );
             } else {
-                response = await this.connectionManager.executeQuery(query, queryType);
+                response = await this.connectionManager.executeQueryWithOverrides(
+                    query, 
+                    queryType, 
+                    connectionOverrides
+                );
             }
             
             const executionTime = Date.now() - startTime;
@@ -116,14 +134,20 @@ export class QueryRunner {
 
     public async executeQueryFromBlock(queryBlock: QueryBlock): Promise<QueryResult> {
         const timeout = queryBlock.metadata?.timeout;
-        return this.executeQuery(queryBlock.content, queryBlock.type, timeout, queryBlock.metadata);
+        return this.executeQuery(
+            queryBlock.content, 
+            queryBlock.type, 
+            timeout, 
+            queryBlock.metadata,
+            queryBlock.connectionOverrides
+        );
     }
 
     public async executeQueryAtPosition(
         document: vscode.TextDocument, 
         position: vscode.Position
     ): Promise<QueryResult | null> {
-        const queryBlock = MarkdownParser.findQueryBlockAtPosition(document, position);
+        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
         
         if (!queryBlock) {
             vscode.window.showWarningMessage('No query block found at cursor position');
@@ -131,6 +155,25 @@ export class QueryRunner {
         }
 
         return this.executeQueryFromBlock(queryBlock);
+    }
+
+    /**
+     * Execute query at position with enhanced override support
+     */
+    public async executeQueryAtPositionWithOverrides(
+        document: vscode.TextDocument, 
+        position: vscode.Position
+    ): Promise<QueryResult | null> {
+        const queryBlocks = MarkdownParser.parseDocumentWithOverrides(document);
+        
+        for (const block of queryBlocks) {
+            if (block.range.contains(position)) {
+                return this.executeQueryFromBlock(block);
+            }
+        }
+        
+        vscode.window.showWarningMessage('No query block found at cursor position');
+        return null;
     }
 
     private processQueryResponse(response: OpenSearchResponse, executionTime: number, queryType?: string): QueryResult {

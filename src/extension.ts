@@ -149,8 +149,8 @@ async function runQuery(
         // Use provided position or cursor position
         const queryPosition = position || editor.selection.active;
 
-        // Find query block at position
-        const queryBlock = MarkdownParser.findQueryBlockAtPosition(document, queryPosition);
+        // Find query block at position with configuration overrides
+        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, queryPosition);
         if (!queryBlock) {
             vscode.window.showWarningMessage('No query block found at cursor position');
             return;

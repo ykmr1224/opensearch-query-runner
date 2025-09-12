@@ -13,11 +13,29 @@ export interface OpenSearchConfig {
     enableCodeLens: boolean;
 }
 
+export interface ConnectionOverrides {
+    endpoint?: string;
+    auth?: {
+        type?: 'none' | 'basic' | 'apikey';
+        username?: string;
+        password?: string;
+        apiKey?: string;
+    };
+    timeout?: number;
+}
+
+export interface ConfigurationBlock {
+    config: ConnectionOverrides;
+    range: vscode.Range;
+    position: number;
+}
+
 export interface QueryBlock {
     type: 'sql' | 'ppl' | 'opensearch-api';
     content: string;
     range: vscode.Range;
     metadata?: QueryMetadata;
+    connectionOverrides?: ConnectionOverrides;
 }
 
 export interface QueryMetadata {
