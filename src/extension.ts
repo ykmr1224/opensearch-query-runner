@@ -189,25 +189,50 @@ async function runQuery(
             // Execute query
             const result = await queryRunner.executeQueryFromBlock(queryBlock);
 
-            // Add to history if separate tab mode
-            if (mode === DisplayMode.SeparateTab) {
+            // For SQL and PPL queries, also execute explain query if in separate tab mode
+            if (mode === DisplayMode.SeparateTab && (queryBlock.type === 'sql' || queryBlock.type === 'ppl')) {
+                progress.report({ message: 'Executing explain query...' });
+                const explainResult = await queryRunner.executeExplainQueryFromBlock(queryBlock);
+                
+                // Add to history if separate tab mode
                 await historyManager.addToHistory(
                     queryBlock.content,
                     queryBlock.type,
                     result,
                     config!.endpoint
                 );
-            }
 
-            // Display results
-            await resultsProvider.displayResults(
-                result,
-                mode!,
-                queryBlock.content,
-                queryBlock.type,
-                document,
-                queryPosition
-            );
+                // Display results with explain
+                await resultsProvider.displayResultsWithExplain(
+                    result,
+                    explainResult,
+                    mode!,
+                    queryBlock.content,
+                    queryBlock.type,
+                    document,
+                    queryPosition
+                );
+            } else {
+                // Add to history if separate tab mode
+                if (mode === DisplayMode.SeparateTab) {
+                    await historyManager.addToHistory(
+                        queryBlock.content,
+                        queryBlock.type,
+                        result,
+                        config!.endpoint
+                    );
+                }
+
+                // Display results without explain
+                await resultsProvider.displayResults(
+                    result,
+                    mode!,
+                    queryBlock.content,
+                    queryBlock.type,
+                    document,
+                    queryPosition
+                );
+            }
         });
 
     } catch (error: any) {
@@ -324,8 +349,7 @@ source=logs
 
 \`\`\`opensearch-api
 -- Description: Create a new index with mappings
--- Method: PUT
--- Endpoint: /logs-2024
+PUT /logs-2024
 {
   "mappings": {
     "properties": {
@@ -339,8 +363,7 @@ source=logs
 
 \`\`\`opensearch-api
 -- Description: Index a document
--- Method: POST
--- Endpoint: /logs-2024/_doc
+POST /logs-2024/_doc
 {
   "timestamp": "2024-01-15T10:30:00Z",
   "level": "INFO",

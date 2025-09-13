@@ -475,6 +475,78 @@ export class ConnectionManager {
     }
 
     /**
+     * Execute explain query with connection overrides
+     */
+    public async executeExplainQueryWithOverrides(
+        query: string, 
+        queryType: 'sql' | 'ppl', 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        const endpoint = queryType === 'sql' ? '/_plugins/_sql/_explain' : '/_plugins/_ppl/_explain';
+        const payload = { query };
+
+        try {
+            const response = await axiosInstance.post(endpoint, payload);
+            
+            // Add detailed request and response info
+            const result = response.data;
+            result.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeadersWithOverrides(overrides)
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            result.responseInfo = {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+            };
+            
+            return result;
+        } catch (error: any) {
+            const errorResponse: any = {
+                error: {
+                    type: error.response?.data?.error?.type || 'RequestError',
+                    reason: error.response?.data?.error?.reason || error.message,
+                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+                }
+            };
+            
+            // Add request info even for errors
+            errorResponse.requestInfo = {
+                method: 'POST',
+                endpoint: endpoint,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.getAuthHeadersWithOverrides(overrides)
+                },
+                body: JSON.stringify(payload, null, 2)
+            };
+            
+            if (error.response) {
+                errorResponse.responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
+                };
+            }
+            
+            return errorResponse;
+        }
+    }
+
+    /**
      * Execute API operation with connection overrides
      */
     public async executeApiOperationWithOverrides(

@@ -143,6 +143,126 @@ export class QueryRunner {
         );
     }
 
+    public async executeExplainQuery(
+        query: string, 
+        queryType: 'sql' | 'ppl', 
+        timeout?: number,
+        connectionOverrides?: ConnectionOverrides
+    ): Promise<QueryResult> {
+        const startTime = Date.now();
+
+        try {
+            // Validate connection overrides if provided
+            if (connectionOverrides) {
+                const overrideValidation = MarkdownParser.validateConnectionOverrides(connectionOverrides);
+                if (!overrideValidation.valid) {
+                    return {
+                        success: false,
+                        error: `Connection override error: ${overrideValidation.error}`,
+                        executionTime: Date.now() - startTime
+                    };
+                }
+            }
+
+            // Validate query type
+            if (queryType !== 'sql' && queryType !== 'ppl') {
+                return {
+                    success: false,
+                    error: 'Explain is only supported for SQL and PPL queries',
+                    executionTime: Date.now() - startTime
+                };
+            }
+
+            // Execute explain query using the proper explain endpoint
+            const response = await this.connectionManager.executeExplainQueryWithOverrides(
+                query, 
+                queryType, 
+                connectionOverrides
+            );
+            
+            const executionTime = Date.now() - startTime;
+
+            if (response.error) {
+                return {
+                    success: false,
+                    error: `${response.error.type}: ${response.error.reason}`,
+                    executionTime,
+                    rawResponse: response,
+                    requestInfo: response.requestInfo,
+                    responseInfo: response.responseInfo
+                };
+            }
+
+            // Process successful explain response
+            const result = this.processQueryResponse(response, executionTime, queryType);
+            
+            // Add request info if available
+            if (response.requestInfo) {
+                result.requestInfo = response.requestInfo;
+            }
+            
+            // Add response info if available
+            if (response.responseInfo) {
+                result.responseInfo = response.responseInfo;
+            }
+            
+            return result;
+
+        } catch (error: any) {
+            // Try to extract request/response info from the error if available
+            let requestInfo = undefined;
+            let responseInfo = undefined;
+            let rawResponse = undefined;
+            
+            if (error.response) {
+                // This is likely an axios error with response info
+                responseInfo = {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    headers: error.response.headers
+                };
+                rawResponse = error.response.data;
+            }
+            
+            if (error.config) {
+                // This is likely an axios error with request config
+                requestInfo = {
+                    method: error.config.method?.toUpperCase(),
+                    endpoint: error.config.url,
+                    headers: error.config.headers,
+                    body: error.config.data ? (typeof error.config.data === 'string' ? error.config.data : JSON.stringify(error.config.data, null, 2)) : undefined
+                };
+            }
+            
+            return {
+                success: false,
+                error: error.message || 'Unknown error occurred',
+                executionTime: Date.now() - startTime,
+                requestInfo,
+                responseInfo,
+                rawResponse
+            };
+        }
+    }
+
+    public async executeExplainQueryFromBlock(queryBlock: QueryBlock): Promise<QueryResult> {
+        if (queryBlock.type !== 'sql' && queryBlock.type !== 'ppl') {
+            return {
+                success: false,
+                error: 'Explain is only supported for SQL and PPL queries',
+                executionTime: 0
+            };
+        }
+
+        const timeout = queryBlock.metadata?.timeout;
+        return this.executeExplainQuery(
+            queryBlock.content, 
+            queryBlock.type, 
+            timeout,
+            queryBlock.connectionOverrides
+        );
+    }
+
     public async executeQueryAtPosition(
         document: vscode.TextDocument, 
         position: vscode.Position

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { QueryResult, DisplayMode } from './types';
+import { QueryResult, DisplayMode, QueryBlock } from './types';
+import { QueryRunner } from './queryRunner';
 
 export class ResultsProvider {
     private static readonly RESULTS_START = '<!-- OpenSearch Results Start -->';
@@ -17,6 +18,22 @@ export class ResultsProvider {
             await this.displayInlineResults(result, document, position, query, queryType);
         } else {
             await this.displaySeparateTabResults(result, query, queryType);
+        }
+    }
+
+    public async displayResultsWithExplain(
+        result: QueryResult,
+        explainResult: QueryResult,
+        mode: DisplayMode,
+        query: string,
+        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        document?: vscode.TextDocument,
+        position?: vscode.Position
+    ): Promise<void> {
+        if (mode === DisplayMode.Inline && document && position) {
+            await this.displayInlineResults(result, document, position, query, queryType);
+        } else {
+            await this.displaySeparateTabResultsWithExplain(result, explainResult, query, queryType);
         }
     }
 
@@ -268,6 +285,46 @@ export class ResultsProvider {
         }
     }
 
+    private async displaySeparateTabResultsWithExplain(
+        result: QueryResult,
+        explainResult: QueryResult,
+        query: string,
+        queryType: 'sql' | 'ppl' | 'opensearch-api'
+    ): Promise<void> {
+        const panel = vscode.window.createWebviewPanel(
+            'opensearchResults',
+            'OpenSearch Query Results',
+            vscode.ViewColumn.Beside,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            }
+        );
+
+        panel.webview.html = this.generateResultsHtmlWithExplain(result, explainResult, query, queryType);
+
+        // Handle messages from webview
+        panel.webview.onDidReceiveMessage(
+            async (message) => {
+                switch (message.command) {
+                    case 'showHistory':
+                        // Execute the show history command
+                        await vscode.commands.executeCommand('opensearch-query.showHistory');
+                        break;
+                }
+            }
+        );
+
+        // Show success/error message
+        if (result.success) {
+            vscode.window.showInformationMessage(
+                `Query executed successfully in ${result.executionTime}ms`
+            );
+        } else {
+            vscode.window.showErrorMessage(`Query failed: ${result.error}`);
+        }
+    }
+
     private generateResultsHtml(result: QueryResult, query: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
         const timestamp = new Date().toLocaleString();
         
@@ -483,6 +540,226 @@ export class ResultsProvider {
         `;
     }
 
+    private generateResultsHtmlWithExplain(
+        result: QueryResult, 
+        explainResult: QueryResult, 
+        query: string, 
+        queryType: 'sql' | 'ppl' | 'opensearch-api'
+    ): string {
+        const timestamp = new Date().toLocaleString();
+        
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>OpenSearch Query Results</title>
+            <style>
+                body {
+                    font-family: var(--vscode-font-family);
+                    font-size: var(--vscode-font-size);
+                    color: var(--vscode-foreground);
+                    background-color: var(--vscode-editor-background);
+                    margin: 0;
+                    padding: 20px;
+                }
+                .header {
+                    border-bottom: 1px solid var(--vscode-panel-border);
+                    padding-bottom: 15px;
+                    margin-bottom: 20px;
+                }
+                .header-content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                }
+                .header-left h1 {
+                    margin: 0 0 5px 0;
+                }
+                .header-left p {
+                    margin: 0;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 0.9em;
+                }
+                .header-right {
+                    display: flex;
+                    align-items: center;
+                }
+                .history-btn {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.9em;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    transition: background-color 0.2s ease;
+                }
+                .history-btn:hover {
+                    background-color: var(--vscode-button-hoverBackground);
+                }
+                .history-btn .icon {
+                    font-size: 1em;
+                }
+                .query-info {
+                    background-color: var(--vscode-textBlockQuote-background);
+                    border-left: 4px solid var(--vscode-button-background);
+                    padding: 10px 15px;
+                    margin-bottom: 20px;
+                    position: relative;
+                }
+                .query-type-label {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    padding: 4px 8px;
+                    font-size: 0.8em;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    z-index: 1;
+                }
+                .query-content {
+                    margin-top: 20px;
+                }
+                .success {
+                    color: var(--vscode-testing-iconPassed);
+                }
+                .error {
+                    color: var(--vscode-testing-iconFailed);
+                }
+                .metadata {
+                    display: flex;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                    font-size: 0.9em;
+                }
+                .metadata-item {
+                    background-color: var(--vscode-badge-background);
+                    color: var(--vscode-badge-foreground);
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }
+                th, td {
+                    border: 1px solid var(--vscode-panel-border);
+                    padding: 8px 12px;
+                    text-align: left;
+                }
+                th {
+                    background-color: var(--vscode-list-hoverBackground);
+                    font-weight: bold;
+                }
+                tr:nth-child(even) {
+                    background-color: var(--vscode-list-inactiveSelectionBackground);
+                }
+                .json-container {
+                    background-color: var(--vscode-textCodeBlock-background);
+                    border: 1px solid var(--vscode-panel-border);
+                    border-radius: 4px;
+                    padding: 15px;
+                    overflow-x: auto;
+                }
+                pre {
+                    margin: 0;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                }
+                .tabs {
+                    display: flex;
+                    border-bottom: 1px solid var(--vscode-panel-border);
+                    margin-bottom: 15px;
+                }
+                .tab {
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    border-bottom: 2px solid transparent;
+                }
+                .tab.active {
+                    border-bottom-color: var(--vscode-focusBorder);
+                    background-color: var(--vscode-tab-activeBackground);
+                }
+                .tab-content {
+                    display: none;
+                }
+                .tab-content.active {
+                    display: block;
+                }
+                .debug-section {
+                    margin-top: 10px;
+                }
+                .debug-item {
+                    margin-bottom: 20px;
+                }
+                .debug-item h3 {
+                    margin: 0 0 10px 0;
+                    color: var(--vscode-foreground);
+                    font-size: 1.1em;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1>OpenSearch Query Results</h1>
+                        <p>Executed at ${timestamp}</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="btn history-btn" onclick="showHistory()" title="View Query History">
+                            <span class="icon">📋</span>
+                            History
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="query-info">
+                <div class="query-type-label">${queryType.toUpperCase()}</div>
+                <div class="query-content">
+                    <pre>${query}</pre>
+                </div>
+            </div>
+
+            ${this.generateResultContentWithExplain(result, explainResult)}
+
+            <script>
+                const vscode = acquireVsCodeApi();
+
+                function showTab(tabName) {
+                    // Hide all tab contents
+                    const contents = document.querySelectorAll('.tab-content');
+                    contents.forEach(content => content.classList.remove('active'));
+                    
+                    // Remove active class from all tabs
+                    const tabs = document.querySelectorAll('.tab');
+                    tabs.forEach(tab => tab.classList.remove('active'));
+                    
+                    // Show selected tab content
+                    document.getElementById(tabName).classList.add('active');
+                    document.querySelector('[onclick="showTab(\\''+tabName+'\\')"]').classList.add('active');
+                }
+
+                function showHistory() {
+                    vscode.postMessage({
+                        command: 'showHistory'
+                    });
+                }
+            </script>
+        </body>
+        </html>
+        `;
+    }
+
     private generateResultContent(result: QueryResult): string {
         const rawRequestSection = this.generateRawRequestSection(result);
         const rawResponseSection = this.generateRawResponseSection(result);
@@ -604,6 +881,246 @@ export class ResultsProvider {
         }
 
         return content;
+    }
+
+    private generateResultContentWithExplain(result: QueryResult, explainResult: QueryResult): string {
+        const rawRequestSection = this.generateRawRequestSection(result);
+        const rawResponseSection = this.generateRawResponseSection(result);
+        const explainRequestSection = this.generateRawRequestSection(explainResult);
+        const explainResponseSection = this.generateRawResponseSection(explainResult);
+        
+        if (!result.success) {
+            // For errors, show Error tab, Raw Request, and Raw Response tabs
+            return `
+                <div class="metadata">
+                    <span class="metadata-item error">❌ Error</span>
+                    <span class="metadata-item">⏱️ ${result.executionTime}ms</span>
+                </div>
+                
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('error')">Error Details</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
+                </div>
+                
+                <div id="error" class="tab-content active">
+                    <div class="json-container">
+                        <pre>${result.error}</pre>
+                    </div>
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
+            `;
+        }
+
+        const metadata = `
+            <div class="metadata">
+                <span class="metadata-item success">✅ Success</span>
+                <span class="metadata-item">⏱️ ${result.executionTime}ms</span>
+                ${result.rowCount !== undefined ? `<span class="metadata-item">📊 ${result.rowCount} rows</span>` : ''}
+                ${explainResult.success ? `<span class="metadata-item">🔍 Explain: ${explainResult.executionTime}ms</span>` : `<span class="metadata-item error">🔍 Explain: Failed</span>`}
+            </div>
+        `;
+
+        if (!result.data) {
+            // For successful requests with no data, show JSON, Explain, Raw Request, and Raw Response tabs
+            return metadata + `
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('json')">JSON View</div>
+                    <div class="tab" onclick="showTab('explain')">🔍 Explain</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
+                </div>
+                
+                <div id="json" class="tab-content active">
+                    <p>No results found</p>
+                </div>
+                
+                <div id="explain" class="tab-content">
+                    ${this.generateExplainContent(explainResult)}
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
+            `;
+        }
+
+        const hasTableData = Array.isArray(result.data) && result.data.length > 0;
+        
+        let content = metadata;
+        
+        if (hasTableData) {
+            content += `
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('table')">Table View</div>
+                    <div class="tab" onclick="showTab('json')">JSON View</div>
+                    <div class="tab" onclick="showTab('explain')">🔍 Explain</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
+                </div>
+                
+                <div id="table" class="tab-content active">
+                    ${this.generateHtmlTable(result.data, result.columns, result.rawResponse?.schema)}
+                </div>
+                
+                <div id="json" class="tab-content">
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                    </div>
+                </div>
+                
+                <div id="explain" class="tab-content">
+                    ${this.generateExplainContent(explainResult)}
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
+            `;
+        } else {
+            content += `
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('json')">JSON View</div>
+                    <div class="tab" onclick="showTab('explain')">🔍 Explain</div>
+                    <div class="tab" onclick="showTab('raw-request')">Raw Request</div>
+                    <div class="tab" onclick="showTab('raw-response')">Raw Response</div>
+                </div>
+                
+                <div id="json" class="tab-content active">
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                    </div>
+                </div>
+                
+                <div id="explain" class="tab-content">
+                    ${this.generateExplainContent(explainResult)}
+                </div>
+                
+                <div id="raw-request" class="tab-content">
+                    ${rawRequestSection}
+                </div>
+                
+                <div id="raw-response" class="tab-content">
+                    ${rawResponseSection}
+                </div>
+            `;
+        }
+
+        return content;
+    }
+
+    private generateExplainContent(explainResult: QueryResult): string {
+        if (!explainResult.success) {
+            return `
+                <div class="debug-section">
+                    <div class="debug-item">
+                        <h3>❌ Explain Query Failed</h3>
+                        <div class="json-container">
+                            <pre>${explainResult.error}</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // For successful explain results, create separate sections
+        let content = '<div class="debug-section">';
+        
+        // Extract just the execution plan data (without request/response info)
+        const executionPlan = this.extractExecutionPlan(explainResult);
+        
+        content += `
+            <div class="debug-item">
+                <h3>🔍 Query Execution Plan</h3>
+                <div class="json-container">
+                    <pre>${JSON.stringify(executionPlan, null, 2)}</pre>
+                </div>
+            </div>
+        `;
+
+        // Add explain request details in a separate section
+        if (explainResult.requestInfo) {
+            const { method, endpoint, headers, body } = explainResult.requestInfo;
+            
+            // Format HTTP headers
+            let headersText = '';
+            if (headers) {
+                Object.entries(headers).forEach(([key, value]) => {
+                    headersText += `${key}: ${value}\n`;
+                });
+            }
+
+            // Build the raw HTTP request
+            let rawRequest = `${method || 'POST'} ${endpoint || '/'} HTTP/1.1\n`;
+            if (headersText) {
+                rawRequest += headersText;
+            }
+            rawRequest += '\n'; // Empty line between headers and body
+            if (body) {
+                rawRequest += body;
+            }
+
+            content += `
+                <div class="debug-item">
+                    <h3>📤 Explain Request Details</h3>
+                    <div class="json-container">
+                        <pre>${rawRequest}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add explain response details in a separate section
+        if (explainResult.rawResponse) {
+            content += `
+                <div class="debug-item">
+                    <h3>📄 Explain Raw Response</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(explainResult.rawResponse, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        content += '</div>';
+        return content;
+    }
+
+    private extractExecutionPlan(explainResult: QueryResult): any {
+        // Extract only the execution plan data, excluding request/response metadata
+        if (!explainResult.data) {
+            return null;
+        }
+
+        // If the data is the raw response, try to extract the actual plan
+        if (explainResult.rawResponse) {
+            // Create a clean copy without request/response info
+            const cleanData = { ...explainResult.rawResponse };
+            
+            // Remove request/response metadata if present
+            delete cleanData.requestInfo;
+            delete cleanData.responseInfo;
+            
+            return cleanData;
+        }
+
+        // If data is already processed, return it as-is
+        return explainResult.data;
     }
 
     private generateRawRequestSection(result: QueryResult): string {
