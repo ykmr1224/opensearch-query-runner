@@ -116,7 +116,8 @@ export class HistoryManager {
             vscode.ViewColumn.Beside,
             {
                 enableScripts: true,
-                retainContextWhenHidden: true
+                retainContextWhenHidden: true,
+                localResourceRoots: []
             }
         );
 
@@ -125,21 +126,71 @@ export class HistoryManager {
         // Handle messages from webview
         panel.webview.onDidReceiveMessage(
             async (message) => {
-                switch (message.command) {
-                    case 'rerun':
-                        await this.rerunQuery(message.id);
-                        break;
-                    case 'delete':
-                        await this.removeHistoryItem(message.id);
-                        panel.webview.html = this.generateHistoryHtml();
-                        break;
-                    case 'clear':
-                        await this.clearHistory();
-                        panel.webview.html = this.generateHistoryHtml();
-                        break;
-                    case 'export':
-                        await this.exportHistory();
-                        break;
+                try {
+                    switch (message.command) {
+                        case 'rerun':
+                            await this.rerunQuery(message.id);
+                            break;
+                        case 'delete':
+                            await this.removeHistoryItem(message.id);
+                            // Send updated data to webview instead of regenerating HTML
+                            panel.webview.postMessage({
+                                command: 'updateHistory',
+                                data: this.getHistory()
+                            });
+                            break;
+                        case 'clear':
+                            await this.clearHistory();
+                            // Send updated data to webview instead of regenerating HTML
+                            panel.webview.postMessage({
+                                command: 'updateHistory',
+                                data: this.getHistory()
+                            });
+                            break;
+                        case 'confirmDelete':
+                            // Show confirmation dialog in VSCode
+                            const deleteChoice = await vscode.window.showWarningMessage(
+                                'Are you sure you want to delete this history item?',
+                                { modal: true },
+                                'Delete'
+                            );
+                            if (deleteChoice === 'Delete') {
+                                await this.removeHistoryItem(message.id);
+                                panel.webview.postMessage({
+                                    command: 'updateHistory',
+                                    data: this.getHistory()
+                                });
+                            }
+                            break;
+                        case 'confirmClear':
+                            // Show confirmation dialog in VSCode
+                            const clearChoice = await vscode.window.showWarningMessage(
+                                'Are you sure you want to clear all history? This cannot be undone.',
+                                { modal: true },
+                                'Clear All'
+                            );
+                            if (clearChoice === 'Clear All') {
+                                await this.clearHistory();
+                                panel.webview.postMessage({
+                                    command: 'updateHistory',
+                                    data: this.getHistory()
+                                });
+                            }
+                            break;
+                        case 'export':
+                            await this.exportHistory();
+                            break;
+                        case 'refresh':
+                            // Handle explicit refresh requests
+                            panel.webview.postMessage({
+                                command: 'updateHistory',
+                                data: this.getHistory()
+                            });
+                            break;
+                    }
+                } catch (error) {
+                    console.error('Error handling webview message:', error);
+                    vscode.window.showErrorMessage(`History operation failed: ${error}`);
                 }
             },
             undefined,
@@ -177,6 +228,7 @@ export class HistoryManager {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
             <title>OpenSearch Query History</title>
             <style>
                 body {
@@ -292,10 +344,85 @@ export class HistoryManager {
                 </div>
             </div>
 
-            ${historyItems.length === 0 ? this.generateEmptyState() : this.generateHistoryItems(historyItems)}
+            <div id="history-container">
+                ${historyItems.length === 0 ? this.generateEmptyState() : this.generateHistoryItems(historyItems)}
+            </div>
 
             <script>
                 const vscode = acquireVsCodeApi();
+
+                // Listen for messages from the extension
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    switch (message.command) {
+                        case 'updateHistory':
+                            updateHistoryDisplay(message.data);
+                            break;
+                    }
+                });
+
+                function updateHistoryDisplay(historyItems) {
+                    // Update the header count
+                    const header = document.querySelector('.header h1');
+                    if (header) {
+                        header.textContent = \`Query History (\${historyItems.length} items)\`;
+                    }
+
+                    // Get the history container by ID for reliable selection
+                    const container = document.getElementById('history-container');
+                    if (!container) {
+                        console.error('History container not found');
+                        return;
+                    }
+                    
+                    if (historyItems.length === 0) {
+                        container.innerHTML = \`
+                            <div class="empty-state">
+                                <h2>No query history yet</h2>
+                                <p>Execute some queries to see them appear here.</p>
+                            </div>
+                        \`;
+                    } else {
+                        container.innerHTML = generateHistoryItemsHtml(historyItems);
+                    }
+                }
+
+                function generateHistoryItemsHtml(items) {
+                    return items.map(item => {
+                        const queryPreview = item.query.length > 200 
+                            ? item.query.substring(0, 200) + '...' 
+                            : item.query;
+
+                        const statusIcon = item.result.success ? '✅' : '❌';
+                        const statusText = item.result.success 
+                            ? \`Success (\${item.result.executionTime}ms\${item.result.rowCount !== undefined ? \`, \${item.result.rowCount} rows\` : ''})\`
+                            : \`Error: \${item.result.error}\`;
+
+                        const timestamp = new Date(item.timestamp).toLocaleString();
+
+                        return \`
+                            <div class="history-item">
+                                <div class="history-header">
+                                    <div>
+                                        <span class="query-type">\${item.queryType.toUpperCase()}</span>
+                                        <span class="timestamp">\${timestamp}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="query-preview">\${queryPreview}</div>
+                                
+                                <div class="result-status">
+                                    <span class="\${item.result.success ? 'success' : 'error'}">\${statusIcon} \${statusText}</span>
+                                </div>
+                                
+                                <div class="item-actions">
+                                    <button class="btn btn-small" onclick="rerunQuery('\${item.id}')">Rerun</button>
+                                    <button class="btn btn-small btn-secondary" onclick="deleteItem('\${item.id}')">Delete</button>
+                                </div>
+                            </div>
+                        \`;
+                    }).join('');
+                }
 
                 function rerunQuery(id) {
                     vscode.postMessage({
@@ -305,20 +432,18 @@ export class HistoryManager {
                 }
 
                 function deleteItem(id) {
-                    if (confirm('Are you sure you want to delete this history item?')) {
-                        vscode.postMessage({
-                            command: 'delete',
-                            id: id
-                        });
-                    }
+                    // Send confirmation request to extension instead of using blocked confirm()
+                    vscode.postMessage({
+                        command: 'confirmDelete',
+                        id: id
+                    });
                 }
 
                 function clearHistory() {
-                    if (confirm('Are you sure you want to clear all history? This cannot be undone.')) {
-                        vscode.postMessage({
-                            command: 'clear'
-                        });
-                    }
+                    // Send confirmation request to extension instead of using blocked confirm()
+                    vscode.postMessage({
+                        command: 'confirmClear'
+                    });
                 }
 
                 function exportHistory() {

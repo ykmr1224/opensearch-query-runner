@@ -246,6 +246,18 @@ export class ResultsProvider {
 
         panel.webview.html = this.generateResultsHtml(result, query, queryType);
 
+        // Handle messages from webview
+        panel.webview.onDidReceiveMessage(
+            async (message) => {
+                switch (message.command) {
+                    case 'showHistory':
+                        // Execute the show history command
+                        await vscode.commands.executeCommand('opensearch-query.showHistory');
+                        break;
+                }
+            }
+        );
+
         // Show success/error message
         if (result.success) {
             vscode.window.showInformationMessage(
@@ -279,6 +291,42 @@ export class ResultsProvider {
                     border-bottom: 1px solid var(--vscode-panel-border);
                     padding-bottom: 15px;
                     margin-bottom: 20px;
+                }
+                .header-content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                }
+                .header-left h1 {
+                    margin: 0 0 5px 0;
+                }
+                .header-left p {
+                    margin: 0;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 0.9em;
+                }
+                .header-right {
+                    display: flex;
+                    align-items: center;
+                }
+                .history-btn {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.9em;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    transition: background-color 0.2s ease;
+                }
+                .history-btn:hover {
+                    background-color: var(--vscode-button-hoverBackground);
+                }
+                .history-btn .icon {
+                    font-size: 1em;
                 }
                 .query-info {
                     background-color: var(--vscode-textBlockQuote-background);
@@ -384,8 +432,18 @@ export class ResultsProvider {
         </head>
         <body>
             <div class="header">
-                <h1>OpenSearch Query Results</h1>
-                <p>Executed at ${timestamp}</p>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1>OpenSearch Query Results</h1>
+                        <p>Executed at ${timestamp}</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="btn history-btn" onclick="showHistory()" title="View Query History">
+                            <span class="icon">📋</span>
+                            History
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="query-info">
@@ -398,6 +456,8 @@ export class ResultsProvider {
             ${this.generateResultContent(result)}
 
             <script>
+                const vscode = acquireVsCodeApi();
+
                 function showTab(tabName) {
                     // Hide all tab contents
                     const contents = document.querySelectorAll('.tab-content');
@@ -410,6 +470,12 @@ export class ResultsProvider {
                     // Show selected tab content
                     document.getElementById(tabName).classList.add('active');
                     document.querySelector('[onclick="showTab(\\''+tabName+'\\')"]').classList.add('active');
+                }
+
+                function showHistory() {
+                    vscode.postMessage({
+                        command: 'showHistory'
+                    });
                 }
             </script>
         </body>
