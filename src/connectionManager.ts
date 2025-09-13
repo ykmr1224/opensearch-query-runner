@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { OpenSearchConfig, ConnectionTestResult, OpenSearchResponse, ConnectionOverrides } from './types';
+import { ErrorHandler } from './utils/errorHandler';
+import { RequestInfoBuilder } from './utils/requestInfoBuilder';
 
 export class ConnectionManager {
     private axiosInstance: AxiosInstance | null = null;
@@ -76,28 +78,12 @@ export class ConnectionManager {
         return this.config;
     }
 
-    private getAuthHeaders(): Record<string, string> {
+    private getAuthHeaders(overrides?: ConnectionOverrides): Record<string, string> {
         if (!this.config) {
             return {};
         }
 
-        const headers: Record<string, string> = {};
-        
-        switch (this.config.auth.type) {
-            case 'basic':
-                if (this.config.auth.username && this.config.auth.password) {
-                    const credentials = Buffer.from(`${this.config.auth.username}:${this.config.auth.password}`).toString('base64');
-                    headers['Authorization'] = `Basic ${credentials}`;
-                }
-                break;
-            case 'apikey':
-                if (this.config.auth.apiKey) {
-                    headers['Authorization'] = `ApiKey ${this.config.auth.apiKey}`;
-                }
-                break;
-        }
-        
-        return headers;
+        return RequestInfoBuilder.buildAuthHeaders(this.config.auth, overrides);
     }
 
     public async testConnection(): Promise<ConnectionTestResult> {
@@ -369,38 +355,6 @@ export class ConnectionManager {
         return axios.create(axiosConfig);
     }
 
-    /**
-     * Get auth headers for a specific configuration (with overrides)
-     */
-    private getAuthHeadersWithOverrides(overrides?: ConnectionOverrides): Record<string, string> {
-        if (!this.config) {
-            return {};
-        }
-
-        const headers: Record<string, string> = {};
-        
-        // Merge auth config
-        const authType = overrides?.auth?.type || this.config.auth.type;
-        const username = overrides?.auth?.username || this.config.auth.username;
-        const password = overrides?.auth?.password || this.config.auth.password;
-        const apiKey = overrides?.auth?.apiKey || this.config.auth.apiKey;
-        
-        switch (authType) {
-            case 'basic':
-                if (username && password) {
-                    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
-                    headers['Authorization'] = `Basic ${credentials}`;
-                }
-                break;
-            case 'apikey':
-                if (apiKey) {
-                    headers['Authorization'] = `ApiKey ${apiKey}`;
-                }
-                break;
-        }
-        
-        return headers;
-    }
 
     /**
      * Execute query with connection overrides
@@ -431,7 +385,7 @@ export class ConnectionManager {
                 endpoint: endpoint,
                 headers: {
                     'Content-Type': 'application/json',
-                    ...this.getAuthHeadersWithOverrides(overrides)
+                    ...this.getAuthHeaders(overrides)
                 },
                 body: JSON.stringify(payload, null, 2)
             };
@@ -457,7 +411,7 @@ export class ConnectionManager {
                 endpoint: endpoint,
                 headers: {
                     'Content-Type': 'application/json',
-                    ...this.getAuthHeadersWithOverrides(overrides)
+                    ...this.getAuthHeaders(overrides)
                 },
                 body: JSON.stringify(payload, null, 2)
             };
@@ -503,7 +457,7 @@ export class ConnectionManager {
                 endpoint: endpoint,
                 headers: {
                     'Content-Type': 'application/json',
-                    ...this.getAuthHeadersWithOverrides(overrides)
+                    ...this.getAuthHeaders(overrides)
                 },
                 body: JSON.stringify(payload, null, 2)
             };
@@ -529,7 +483,7 @@ export class ConnectionManager {
                 endpoint: endpoint,
                 headers: {
                     'Content-Type': 'application/json',
-                    ...this.getAuthHeadersWithOverrides(overrides)
+                    ...this.getAuthHeaders(overrides)
                 },
                 body: JSON.stringify(payload, null, 2)
             };
@@ -606,7 +560,7 @@ export class ConnectionManager {
 
         const requestHeaders = {
             'Content-Type': contentType,
-            ...this.getAuthHeadersWithOverrides(overrides)
+            ...this.getAuthHeaders(overrides)
         };
 
         const requestConfig: any = {

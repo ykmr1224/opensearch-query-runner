@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import { ConnectionManager } from './connectionManager';
 import { MarkdownParser } from './markdownParser';
 import { QueryResult, QueryBlock, OpenSearchResponse, DisplayMode, ConnectionOverrides } from './types';
+import { QueryExecutionEngine, QueryExecutionContext } from './utils/queryExecutor';
+import { ResponseProcessor } from './utils/responseProcessor';
 
 export class QueryRunner {
     private connectionManager: ConnectionManager;
@@ -17,119 +19,35 @@ export class QueryRunner {
         metadata?: any,
         connectionOverrides?: ConnectionOverrides
     ): Promise<QueryResult> {
-        const startTime = Date.now();
-
-        try {
-            // Validate connection overrides if provided
-            if (connectionOverrides) {
-                const overrideValidation = MarkdownParser.validateConnectionOverrides(connectionOverrides);
-                if (!overrideValidation.valid) {
-                    return {
-                        success: false,
-                        error: `Connection override error: ${overrideValidation.error}`,
-                        executionTime: Date.now() - startTime
-                    };
-                }
-            }
-
-            // Validate query
-            const validation = MarkdownParser.validateQuery(query, queryType, metadata);
-            if (!validation.valid) {
-                return {
-                    success: false,
-                    error: validation.error,
-                    executionTime: Date.now() - startTime
-                };
-            }
-
-            let response: any;
-            
-            // Execute based on query type
-            if (queryType === 'opensearch-api') {
-                if (!metadata?.method || !metadata?.endpoint) {
-                    return {
-                        success: false,
-                        error: 'API operations require method and endpoint metadata',
-                        executionTime: Date.now() - startTime
-                    };
-                }
-                response = await this.connectionManager.executeApiOperationWithOverrides(
-                    metadata.method, 
-                    metadata.endpoint, 
-                    query,
-                    connectionOverrides
-                );
-            } else {
-                response = await this.connectionManager.executeQueryWithOverrides(
-                    query, 
-                    queryType, 
-                    connectionOverrides
-                );
-            }
-            
-            const executionTime = Date.now() - startTime;
-
-            if (response.error) {
-            return {
-                success: false,
-                error: `${response.error.type}: ${response.error.reason}`,
-                executionTime,
-                rawResponse: response,
-                requestInfo: response.requestInfo,
-                responseInfo: response.responseInfo
-            };
-            }
-
-            // Process successful response
-            const result = this.processQueryResponse(response, executionTime, queryType);
-            
-            // Add request info if available
-            if (response.requestInfo) {
-                result.requestInfo = response.requestInfo;
-            }
-            
-            // Add response info if available
-            if (response.responseInfo) {
-                result.responseInfo = response.responseInfo;
-            }
-            
-            return result;
-
-        } catch (error: any) {
-            // Try to extract request/response info from the error if available
-            let requestInfo = undefined;
-            let responseInfo = undefined;
-            let rawResponse = undefined;
-            
-            if (error.response) {
-                // This is likely an axios error with response info
-                responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-                rawResponse = error.response.data;
-            }
-            
-            if (error.config) {
-                // This is likely an axios error with request config
-                requestInfo = {
-                    method: error.config.method?.toUpperCase(),
-                    endpoint: error.config.url,
-                    headers: error.config.headers,
-                    body: error.config.data ? (typeof error.config.data === 'string' ? error.config.data : JSON.stringify(error.config.data, null, 2)) : undefined
-                };
-            }
-            
-            return {
-                success: false,
-                error: error.message || 'Unknown error occurred',
-                executionTime: Date.now() - startTime,
-                requestInfo,
-                responseInfo,
-                rawResponse
-            };
+        const context = QueryExecutionEngine.createContext(query, queryType, timeout, metadata, connectionOverrides);
+        
+        // Pre-validation
+        const validationError = QueryExecutionEngine.validateQuery(context);
+        if (validationError) {
+            return validationError;
         }
+
+        return QueryExecutionEngine.executeWithErrorHandling(
+            context,
+            async (ctx) => {
+                // Execute based on query type
+                if (ctx.queryType === 'opensearch-api') {
+                    return await this.connectionManager.executeApiOperationWithOverrides(
+                        ctx.metadata.method, 
+                        ctx.metadata.endpoint, 
+                        ctx.query,
+                        ctx.connectionOverrides
+                    );
+                } else {
+                    return await this.connectionManager.executeQueryWithOverrides(
+                        ctx.query, 
+                        ctx.queryType, 
+                        ctx.connectionOverrides
+                    );
+                }
+            },
+            (response, executionTime, queryType) => ResponseProcessor.processQueryResponse(response, executionTime, queryType)
+        );
     }
 
     public async executeQueryFromBlock(queryBlock: QueryBlock): Promise<QueryResult> {
@@ -149,100 +67,25 @@ export class QueryRunner {
         timeout?: number,
         connectionOverrides?: ConnectionOverrides
     ): Promise<QueryResult> {
-        const startTime = Date.now();
-
-        try {
-            // Validate connection overrides if provided
-            if (connectionOverrides) {
-                const overrideValidation = MarkdownParser.validateConnectionOverrides(connectionOverrides);
-                if (!overrideValidation.valid) {
-                    return {
-                        success: false,
-                        error: `Connection override error: ${overrideValidation.error}`,
-                        executionTime: Date.now() - startTime
-                    };
-                }
-            }
-
-            // Validate query type
-            if (queryType !== 'sql' && queryType !== 'ppl') {
-                return {
-                    success: false,
-                    error: 'Explain is only supported for SQL and PPL queries',
-                    executionTime: Date.now() - startTime
-                };
-            }
-
-            // Execute explain query using the proper explain endpoint
-            const response = await this.connectionManager.executeExplainQueryWithOverrides(
-                query, 
-                queryType, 
-                connectionOverrides
-            );
-            
-            const executionTime = Date.now() - startTime;
-
-            if (response.error) {
-                return {
-                    success: false,
-                    error: `${response.error.type}: ${response.error.reason}`,
-                    executionTime,
-                    rawResponse: response,
-                    requestInfo: response.requestInfo,
-                    responseInfo: response.responseInfo
-                };
-            }
-
-            // Process successful explain response
-            const result = this.processQueryResponse(response, executionTime, queryType);
-            
-            // Add request info if available
-            if (response.requestInfo) {
-                result.requestInfo = response.requestInfo;
-            }
-            
-            // Add response info if available
-            if (response.responseInfo) {
-                result.responseInfo = response.responseInfo;
-            }
-            
-            return result;
-
-        } catch (error: any) {
-            // Try to extract request/response info from the error if available
-            let requestInfo = undefined;
-            let responseInfo = undefined;
-            let rawResponse = undefined;
-            
-            if (error.response) {
-                // This is likely an axios error with response info
-                responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-                rawResponse = error.response.data;
-            }
-            
-            if (error.config) {
-                // This is likely an axios error with request config
-                requestInfo = {
-                    method: error.config.method?.toUpperCase(),
-                    endpoint: error.config.url,
-                    headers: error.config.headers,
-                    body: error.config.data ? (typeof error.config.data === 'string' ? error.config.data : JSON.stringify(error.config.data, null, 2)) : undefined
-                };
-            }
-            
-            return {
-                success: false,
-                error: error.message || 'Unknown error occurred',
-                executionTime: Date.now() - startTime,
-                requestInfo,
-                responseInfo,
-                rawResponse
-            };
+        const context = QueryExecutionEngine.createContext(query, queryType, timeout, undefined, connectionOverrides);
+        
+        // Pre-validation for explain queries
+        const validationError = QueryExecutionEngine.validateExplainQuery(context);
+        if (validationError) {
+            return validationError;
         }
+
+        return QueryExecutionEngine.executeWithErrorHandling(
+            context,
+            async (ctx) => {
+                return await this.connectionManager.executeExplainQueryWithOverrides(
+                    ctx.query, 
+                    ctx.queryType as 'sql' | 'ppl', 
+                    ctx.connectionOverrides
+                );
+            },
+            (response, executionTime, queryType) => ResponseProcessor.processQueryResponse(response, executionTime, queryType)
+        );
     }
 
     public async executeExplainQueryFromBlock(queryBlock: QueryBlock): Promise<QueryResult> {
@@ -296,177 +139,8 @@ export class QueryRunner {
         return null;
     }
 
-    private processQueryResponse(response: OpenSearchResponse, executionTime: number, queryType?: string): QueryResult {
-        let data: any = null;
-        let rowCount: number | undefined = undefined;
-        let columns: string[] | undefined = undefined;
-
-        // Handle SQL response format
-        if (response.schema && response.datarows) {
-            columns = response.schema.map(col => col.name);
-            data = this.formatSqlResponse(response.schema, response.datarows);
-            rowCount = response.datarows.length;
-        }
-        // Handle search response format
-        else if (response.hits) {
-            data = response.hits.hits;
-            rowCount = response.hits.total?.value || response.hits.hits.length;
-            columns = this.extractColumnsFromHits(response.hits.hits);
-        }
-        // Handle API response formats
-        else if (queryType === 'opensearch-api') {
-            data = response;
-            // For API operations, try to extract meaningful row count
-            const apiResponse = response as any;
-            if (apiResponse.acknowledged !== undefined) {
-                // Index creation, deletion, etc.
-                rowCount = apiResponse.acknowledged ? 1 : 0;
-            } else if (apiResponse._id) {
-                // Document operations
-                rowCount = 1;
-            } else if (Array.isArray(response)) {
-                rowCount = response.length;
-            }
-        }
-        // Handle aggregation or other response formats
-        else {
-            data = response;
-            rowCount = Array.isArray(data) ? data.length : undefined;
-        }
-
-        return {
-            success: true,
-            data,
-            executionTime,
-            rowCount,
-            columns,
-            rawResponse: response
-        };
-    }
-
-    private formatSqlResponse(schema: Array<{name: string, type: string}>, datarows: any[][]): any[] {
-        return datarows.map(row => {
-            const obj: any = {};
-            schema.forEach((col, index) => {
-                obj[col.name] = row[index];
-            });
-            return obj;
-        });
-    }
-
-    private extractColumnsFromHits(hits: any[]): string[] {
-        if (hits.length === 0) {
-            return [];
-        }
-
-        const firstHit = hits[0];
-        const columns = new Set<string>();
-
-        // Add standard fields
-        columns.add('_index');
-        columns.add('_id');
-        columns.add('_score');
-
-        // Add source fields
-        if (firstHit._source) {
-            this.extractFieldNames(firstHit._source, '', columns);
-        }
-
-        return Array.from(columns);
-    }
-
-    private extractFieldNames(obj: any, prefix: string, columns: Set<string>): void {
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                const fullKey = prefix ? `${prefix}.${key}` : key;
-                
-                if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-                    this.extractFieldNames(obj[key], fullKey, columns);
-                } else {
-                    columns.add(fullKey);
-                }
-            }
-        }
-    }
-
     public formatResultForDisplay(result: QueryResult, format: 'table' | 'json' = 'table'): string {
-        if (!result.success) {
-            return `❌ **Error**: ${result.error}\n\n**Execution Time**: ${result.executionTime}ms`;
-        }
-
-        let output = '';
-
-        // Add metadata
-        output += `✅ **Query executed successfully**\n`;
-        output += `**Execution Time**: ${result.executionTime}ms\n`;
-        if (result.rowCount !== undefined) {
-            output += `**Rows**: ${result.rowCount}\n`;
-        }
-        output += '\n';
-
-        if (format === 'table' && result.data && Array.isArray(result.data) && result.data.length > 0) {
-            output += this.formatAsTable(result.data, result.columns);
-        } else if (result.data) {
-            output += '**Results**:\n```json\n';
-            output += JSON.stringify(result.data, null, 2);
-            output += '\n```\n';
-        }
-
-        return output;
-    }
-
-    private formatAsTable(data: any[], columns?: string[]): string {
-        if (data.length === 0) {
-            return '**No results found**\n';
-        }
-
-        // Determine columns to display
-        let displayColumns: string[];
-        if (columns && columns.length > 0) {
-            displayColumns = columns;
-        } else {
-            // Extract columns from first row
-            const firstRow = data[0];
-            displayColumns = Object.keys(firstRow);
-        }
-
-        // Limit columns for readability
-        if (displayColumns.length > 10) {
-            displayColumns = displayColumns.slice(0, 10);
-        }
-
-        // Create table header
-        let table = '| ' + displayColumns.join(' | ') + ' |\n';
-        table += '| ' + displayColumns.map(() => '---').join(' | ') + ' |\n';
-
-        // Add data rows (limit to first 100 rows)
-        const rowsToShow = Math.min(data.length, 100);
-        for (let i = 0; i < rowsToShow; i++) {
-            const row = data[i];
-            const values = displayColumns.map(col => {
-                let value = this.getNestedValue(row, col);
-                if (value === null || value === undefined) {
-                    return '';
-                }
-                if (typeof value === 'object') {
-                    return JSON.stringify(value);
-                }
-                return String(value);
-            });
-            table += '| ' + values.join(' | ') + ' |\n';
-        }
-
-        if (data.length > 100) {
-            table += `\n*Showing first 100 of ${data.length} rows*\n`;
-        }
-
-        return table + '\n';
-    }
-
-    private getNestedValue(obj: any, path: string): any {
-        return path.split('.').reduce((current, key) => {
-            return current && current[key] !== undefined ? current[key] : undefined;
-        }, obj);
+        return ResponseProcessor.formatResultForDisplay(result, format);
     }
 
     public async promptForDisplayMode(): Promise<DisplayMode | undefined> {

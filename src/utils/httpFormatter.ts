@@ -1,0 +1,218 @@
+import { QueryResult } from '../types';
+
+export class HttpFormatter {
+    /**
+     * Formats HTTP request information as a raw HTTP request string
+     */
+    public static formatRawRequest(requestInfo: QueryResult['requestInfo']): string {
+        if (!requestInfo) {
+            return 'No request information available';
+        }
+
+        const { method, endpoint, headers, body } = requestInfo;
+        
+        // Build the raw HTTP request
+        let rawRequest = `${method || 'POST'} ${endpoint || '/'} HTTP/1.1\n`;
+        
+        // Add headers
+        if (headers) {
+            Object.entries(headers).forEach(([key, value]) => {
+                rawRequest += `${key}: ${value}\n`;
+            });
+        }
+        
+        // Empty line between headers and body
+        rawRequest += '\n';
+        
+        // Add body if present
+        if (body) {
+            rawRequest += body;
+        }
+
+        return rawRequest;
+    }
+
+    /**
+     * Formats HTTP response information as a raw HTTP response string
+     */
+    public static formatRawResponse(result: QueryResult): string {
+        if (!result.responseInfo && !result.rawResponse) {
+            return 'No response information available';
+        }
+
+        if (!result.responseInfo) {
+            // If we only have raw response, return it as JSON
+            return result.rawResponse ? JSON.stringify(result.rawResponse, null, 2) : 'No response data';
+        }
+
+        const { status, statusText, headers } = result.responseInfo;
+        
+        // Build the raw HTTP response
+        let rawResponse = `HTTP/1.1 ${status || 200} ${statusText || 'OK'}\n`;
+        
+        // Add headers
+        if (headers) {
+            Object.entries(headers).forEach(([key, value]) => {
+                rawResponse += `${key}: ${value}\n`;
+            });
+        }
+        
+        // Empty line between headers and body
+        rawResponse += '\n';
+        
+        // Add response body if present
+        if (result.rawResponse) {
+            rawResponse += JSON.stringify(result.rawResponse, null, 2);
+        }
+
+        return rawResponse;
+    }
+
+    /**
+     * Generates HTML section for raw HTTP request
+     */
+    public static generateRawRequestSection(result: QueryResult): string {
+        const rawRequest = this.formatRawRequest(result.requestInfo);
+        
+        return `
+            <div class="debug-section">
+                <div class="debug-item">
+                    <h3>📤 Raw HTTP Request</h3>
+                    <div class="json-container">
+                        <pre>${rawRequest}</pre>
+                    </div>
+                </div>
+                <div class="debug-item">
+                    <h3>🔧 Request Details</h3>
+                    <div class="json-container">
+                        <pre>${result.requestInfo ? JSON.stringify(result.requestInfo, null, 2) : 'No request details available'}</pre>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Generates HTML section for raw HTTP response
+     */
+    public static generateRawResponseSection(result: QueryResult): string {
+        if (!result.responseInfo && !result.rawResponse) {
+            return `
+                <div class="debug-section">
+                    <div class="debug-item">
+                        <h3>📥 Raw HTTP Response</h3>
+                        <div class="json-container">
+                            <pre>No response information available</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        let content = '<div class="debug-section">';
+
+        // Add raw HTTP response if we have response info
+        if (result.responseInfo) {
+            const rawResponse = this.formatRawResponse(result);
+            
+            content += `
+                <div class="debug-item">
+                    <h3>📥 Raw HTTP Response</h3>
+                    <div class="json-container">
+                        <pre>${rawResponse}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add response details
+        if (result.responseInfo) {
+            content += `
+                <div class="debug-item">
+                    <h3>🔧 Response Details</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.responseInfo, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add raw response body
+        if (result.rawResponse) {
+            content += `
+                <div class="debug-item">
+                    <h3>📄 Response Body</h3>
+                    <div class="json-container">
+                        <pre>${JSON.stringify(result.rawResponse, null, 2)}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        content += '</div>';
+        return content;
+    }
+
+    /**
+     * Generates curl command equivalent for the HTTP request
+     */
+    public static generateCurlCommand(requestInfo: QueryResult['requestInfo']): string {
+        if (!requestInfo) {
+            return 'curl command not available - no request information';
+        }
+
+        const { method, endpoint, headers, body } = requestInfo;
+        
+        let curlCommand = `curl -X ${method || 'POST'}`;
+        
+        // Add headers
+        if (headers) {
+            Object.entries(headers).forEach(([key, value]) => {
+                curlCommand += ` \\\n  -H "${key}: ${value}"`;
+            });
+        }
+        
+        // Add body if present
+        if (body) {
+            curlCommand += ` \\\n  -d '${body}'`;
+        }
+        
+        // Add endpoint
+        curlCommand += ` \\\n  "${endpoint || 'http://localhost:9200'}"`;
+        
+        return curlCommand;
+    }
+
+    /**
+     * Generates metadata badges for query results
+     */
+    public static generateMetadata(result: QueryResult, explainResult?: QueryResult): string {
+        const items = [];
+        
+        if (result.success) {
+            items.push(`<span class="metadata-item success">✅ Success</span>`);
+        } else {
+            items.push(`<span class="metadata-item error">❌ Error</span>`);
+        }
+        
+        items.push(`<span class="metadata-item">⏱️ ${result.executionTime}ms</span>`);
+        
+        if (result.rowCount !== undefined) {
+            items.push(`<span class="metadata-item">📊 ${result.rowCount} rows</span>`);
+        }
+        
+        if (explainResult) {
+            if (explainResult.success) {
+                items.push(`<span class="metadata-item">🔍 Explain: ${explainResult.executionTime}ms</span>`);
+            } else {
+                items.push(`<span class="metadata-item error">🔍 Explain: Failed</span>`);
+            }
+        }
+        
+        return `
+            <div class="metadata">
+                ${items.join('\n                ')}
+            </div>
+        `;
+    }
+}
