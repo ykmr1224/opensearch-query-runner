@@ -3,7 +3,7 @@
   "displayName": "OpenSearch Query Runner",
   "description": "Execute SQL/PPL queries against OpenSearch clusters from markdown files",
   "version": "0.1.0",
-  "publisher": "opensearch-query",
+  "publisher": "ykmr1224",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -160,7 +160,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/opensearch-query/vscode-extension"
+    "url": "https://github.com/ykmr1224/opensearch-query-runner.git"
   },
-  "license": "MIT"
+  "bugs": {
+    "url": "https://github.com/ykmr1224/opensearch-query-runner/issues"
+  },
+  "homepage": "https://github.com/ykmr1224/opensearch-query-runner#readme",
+  "license": "MIT",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  }
 }
