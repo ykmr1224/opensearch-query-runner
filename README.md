@@ -4,7 +4,7 @@ A VSCode extension that allows you to execute SQL and PPL queries against OpenSe
 
 ## Features
 
-- 🔍 **Execute SQL and PPL queries** against OpenSearch clusters
+- 🔍 **Execute SQL, PPL, and REST API queries** against OpenSearch clusters
 - 📝 **Markdown integration** - Write queries in code blocks with syntax highlighting
 - 🎯 **CodeLens support** - Click "Run Query" buttons above query blocks
 - 📊 **Dual display modes** - View results inline or in a separate tab
@@ -12,6 +12,7 @@ A VSCode extension that allows you to execute SQL and PPL queries against OpenSe
 - ⚙️ **Flexible authentication** - Support for basic auth, API keys, or no auth
 - 🔧 **Configuration management** - Easy setup through VSCode settings
 - 📋 **Per-document configuration** - Override connection settings within markdown files
+- 🌐 **HTTP request line format** - Use familiar `GET /index/_search` syntax for REST API calls
 
 ## Quick Start
 
@@ -44,7 +45,7 @@ source=logs
 
 ### Writing Queries
 
-Create code blocks in markdown files using `sql` or `ppl` language identifiers:
+Create code blocks in markdown files using `sql`, `ppl`, or `opensearch-api` language identifiers:
 
 ````markdown
 ```sql
@@ -54,7 +55,82 @@ SELECT * FROM my_index WHERE field = 'value'
 ```ppl
 source=my_index | where field='value' | head 10
 ```
+
+```opensearch-api
+GET /my_index/_search
+{
+  "query": {
+    "match": {
+      "field": "value"
+    }
+  }
+}
+```
 ````
+
+### OpenSearch REST API Queries
+
+The extension supports OpenSearch REST API operations using two flexible formats:
+
+#### HTTP Request Line Format (Recommended)
+
+Use the familiar HTTP request line format at the beginning of your API blocks:
+
+````markdown
+```opensearch-api
+GET /logs/_search
+-- Description: Search for error logs
+{
+  "query": {
+    "match": {
+      "level": "ERROR"
+    }
+  }
+}
+```
+
+```opensearch-api
+POST /logs/_doc
+-- Description: Index a new log entry
+{
+  "timestamp": "2024-01-15T10:00:00Z",
+  "level": "INFO",
+  "message": "Application started"
+}
+```
+````
+
+#### Traditional Metadata Format (Still Supported)
+
+Use metadata comments to specify method and endpoint:
+
+````markdown
+```opensearch-api
+-- Method: GET
+-- Endpoint: /logs/_search
+-- Description: Search for error logs
+{
+  "query": {
+    "match": {
+      "level": "ERROR"
+    }
+  }
+}
+```
+````
+
+**Key Features:**
+- **Backwards Compatible**: Existing documents with metadata comments continue to work
+- **Override Support**: Metadata comments can override HTTP request line values
+- **Flexible**: Mix both formats in the same document
+- **Intuitive**: HTTP request line format is more familiar to developers
+
+**Supported HTTP Methods:**
+- `GET` - Retrieve data
+- `POST` - Create or search operations
+- `PUT` - Create or update operations
+- `DELETE` - Delete operations
+- `HEAD` - Check if resource exists
 
 ### Query Metadata
 
@@ -208,13 +284,16 @@ SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
 
 Initial release with core functionality:
 - SQL and PPL query execution
+- OpenSearch REST API support with HTTP request line format (`GET /index/_search`)
+- Backwards compatible metadata comment format (`-- Method: GET`)
 - Inline and separate tab result display
 - Query history management
 - CodeLens integration
-- Authentication support
+- Authentication support (none, basic, API key)
 - Per-document configuration blocks with `@variable = 'value'` syntax
 - Multi-cluster support with cascade behavior
 - Configuration validation and error handling
+- Flexible format mixing (HTTP request line + metadata comments)
 
 ## Contributing
 

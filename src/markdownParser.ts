@@ -6,6 +6,7 @@ export class MarkdownParser {
     private static readonly CONFIG_BLOCK_REGEX = /^```(config|opensearch-config|connection)\s*\n([\s\S]*?)^```/gm;
     private static readonly METADATA_REGEX = /^--\s*(\w+):\s*(.+)$/gm;
     private static readonly CONFIG_VAR_REGEX = /^@(\w+)\s*=\s*['"]([^'"]*)['"]\s*$/;
+    private static readonly HTTP_REQUEST_LINE_REGEX = /^(GET|POST|PUT|DELETE|HEAD|PATCH)\s+([^\s]+)(?:\s+HTTP\/[\d.]+)?\s*$/i;
 
     public static parseDocument(document: vscode.TextDocument): QueryBlock[] {
         const text = document.getText();
@@ -21,7 +22,7 @@ export class MarkdownParser {
             
             const queryType = language.toLowerCase() as 'sql' | 'ppl' | 'opensearch-api';
             const cleanContent = this.extractQueryContent(content, queryType);
-            const metadata = this.parseMetadata(content);
+            const metadata = this.parseMetadata(content, queryType);
             
             // For opensearch-api, we need metadata even if content is empty
             if (cleanContent.trim() || (queryType === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
@@ -71,6 +72,23 @@ export class MarkdownParser {
     private static extractQueryContent(content: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
         const lines = content.split('\n');
         const queryLines: string[] = [];
+        let skipFirstHttpLine = false;
+        
+        // For opensearch-api, check if the first non-empty line is an HTTP request line
+        if (queryType === 'opensearch-api') {
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine && this.HTTP_REQUEST_LINE_REGEX.test(trimmedLine)) {
+                    skipFirstHttpLine = true;
+                    break;
+                }
+                if (trimmedLine && !this.isMetadataComment(trimmedLine)) {
+                    break;
+                }
+            }
+        }
+        
+        let httpLineSkipped = false;
         
         for (const line of lines) {
             const trimmedLine = line.trim();
@@ -85,6 +103,12 @@ export class MarkdownParser {
                 continue;
             }
             
+            // For opensearch-api, skip the first HTTP request line if present
+            if (queryType === 'opensearch-api' && skipFirstHttpLine && !httpLineSkipped && this.HTTP_REQUEST_LINE_REGEX.test(trimmedLine)) {
+                httpLineSkipped = true;
+                continue;
+            }
+            
             // For all query types, preserve the line (including regular comments)
             queryLines.push(line);
         }
@@ -92,10 +116,33 @@ export class MarkdownParser {
         return queryLines.join('\n').trim();
     }
 
-    private static parseMetadata(content: string): QueryMetadata {
+    private static parseMetadata(content: string, queryType?: 'sql' | 'ppl' | 'opensearch-api'): QueryMetadata {
         const metadata: QueryMetadata = {};
         const lines = content.split('\n');
         
+        // Only parse HTTP request lines for opensearch-api blocks
+        if (queryType === 'opensearch-api') {
+            // First, check for HTTP request line to extract method and endpoint
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                
+                // Check for HTTP request line format (e.g., "GET /index/_search")
+                const httpMatch = trimmedLine.match(this.HTTP_REQUEST_LINE_REGEX);
+                if (httpMatch) {
+                    const [, method, endpoint] = httpMatch;
+                    metadata.method = method.toUpperCase();
+                    metadata.endpoint = endpoint;
+                    break; // Only process the first HTTP request line found
+                }
+                
+                // Stop at the first non-empty, non-comment line that's not an HTTP request
+                if (trimmedLine && !this.isMetadataComment(trimmedLine)) {
+                    break;
+                }
+            }
+        }
+        
+        // Then, parse metadata comments (these can override HTTP request line values)
         for (const line of lines) {
             const trimmedLine = line.trim();
             
@@ -118,9 +165,11 @@ export class MarkdownParser {
                             metadata.description = value.trim();
                             break;
                         case 'method':
+                            // Metadata comments override HTTP request line
                             metadata.method = value.trim().toUpperCase();
                             break;
                         case 'endpoint':
+                            // Metadata comments override HTTP request line
                             metadata.endpoint = value.trim();
                             break;
                     }
@@ -179,18 +228,18 @@ export class MarkdownParser {
             if (!metadata?.method) {
                 return { 
                     valid: false, 
-                    error: 'OpenSearch API operation requires Method metadata (-- Method: GET/POST/PUT/DELETE)' 
+                    error: 'OpenSearch API operation requires HTTP method. Use either "METHOD /endpoint" format or "-- Method: GET/POST/PUT/DELETE" metadata comment.' 
                 };
             }
             
             if (!metadata?.endpoint) {
                 return { 
                     valid: false, 
-                    error: 'OpenSearch API operation requires Endpoint metadata (-- Endpoint: /index/_doc)' 
+                    error: 'OpenSearch API operation requires endpoint. Use either "METHOD /endpoint" format or "-- Endpoint: /index/_doc" metadata comment.' 
                 };
             }
             
-            const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD'];
+            const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PATCH'];
             if (!validMethods.includes(metadata.method.toUpperCase())) {
                 return { 
                     valid: false, 

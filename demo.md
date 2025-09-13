@@ -49,9 +49,7 @@ First, let's create a simple logs index and add some sample data:
 ### Create Index
 
 ```opensearch-api
--- Description: Create a simple logs index
--- Method: PUT
--- Endpoint: /sample_logs
+PUT /sample_logs
 {
   "mappings": {
     "properties": {
@@ -78,9 +76,7 @@ First, let's create a simple logs index and add some sample data:
 ### Add Sample Data
 
 ```opensearch-api
--- Description: Add sample log entries
--- Method: POST
--- Endpoint: /_bulk
+POST /_bulk
 { "index": { "_index": "sample_logs" } }
 { "timestamp": "2024-01-15T10:00:00Z", "level": "INFO", "message": "User login successful", "service": "auth", "user_id": 1001 }
 { "index": { "_index": "sample_logs" } }
@@ -201,12 +197,94 @@ source=sample_logs
 
 ## OpenSearch REST API Examples
 
+The OpenSearch Query Runner supports two flexible formats for REST API requests, making it easy to work with OpenSearch's REST API directly from your markdown files.
+
+### HTTP Request Line Format (Recommended)
+
+The new HTTP request line format uses familiar HTTP syntax at the beginning of your API blocks. This format is more intuitive and follows standard HTTP conventions:
+
+```opensearch-api
+GET /sample_logs/_search
+-- Description: Search for error logs
+{
+  "query": {
+    "match": {
+      "level": "ERROR"
+    }
+  }
+}
+```
+
+**Benefits of HTTP Request Line Format:**
+- **Familiar Syntax**: Uses standard HTTP request line format (`METHOD /path`)
+- **Query Parameters**: Supports URL query parameters (`GET /index/_search?size=10&from=0`)
+- **Cleaner Code**: More concise than metadata comments
+- **Industry Standard**: Follows REST API documentation conventions
+
+### Traditional Metadata Format (Fully Supported)
+
+The original metadata comment format continues to work exactly as before:
+
+```opensearch-api
+-- Method: GET
+-- Endpoint: /sample_logs/_search
+-- Description: Search for error logs
+{
+  "query": {
+    "match": {
+      "level": "ERROR"
+    }
+  }
+}
+```
+
+### Advanced Format Features
+
+**Metadata Override**: Metadata comments can override HTTP request line values when needed:
+
+```opensearch-api
+GET /wrong-endpoint
+-- Method: POST
+-- Endpoint: /correct-endpoint/_search
+-- Description: Metadata comments take precedence
+{
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+**Mixed Format Support**: Use both formats in the same document:
+
+```opensearch-api
+GET /logs/_search
+-- Description: Using HTTP request line format
+{
+  "query": { "match_all": {} }
+}
+```
+
+```opensearch-api
+-- Method: POST
+-- Endpoint: /logs/_doc
+-- Description: Using traditional metadata format
+{
+  "timestamp": "2024-01-15T10:00:00Z",
+  "message": "Sample log entry"
+}
+```
+
+**Key Features:**
+- **100% Backwards Compatible**: All existing documents continue to work unchanged
+- **Flexible Override**: Metadata comments can override HTTP request line values
+- **Format Mixing**: Use both formats in the same document as needed
+- **Developer Friendly**: HTTP request line format matches REST API documentation
+
 ### 1. Simple Search
 
 ```opensearch-api
+GET /sample_logs/_search
 -- Description: Search for error logs
--- Method: GET
--- Endpoint: /sample_logs/_search
 {
   "query": {
     "match": {
@@ -219,9 +297,8 @@ source=sample_logs
 ### 2. Search with Filters
 
 ```opensearch-api
+POST /sample_logs/_search
 -- Description: Search logs from auth service
--- Method: POST
--- Endpoint: /sample_logs/_search
 {
   "query": {
     "bool": {
@@ -247,9 +324,8 @@ source=sample_logs
 ### 3. Aggregation by Service
 
 ```opensearch-api
+POST /sample_logs/_search
 -- Description: Count logs by service
--- Method: POST
--- Endpoint: /sample_logs/_search
 {
   "size": 0,
   "aggs": {
@@ -313,9 +389,8 @@ SELECT COUNT(*) as prod_log_count FROM production_logs
 ```
 
 ```opensearch-api
+GET /_cluster/health
 -- Description: Check production cluster health
--- Method: GET
--- Endpoint: /_cluster/health
 ```
 
 ```config
