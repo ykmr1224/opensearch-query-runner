@@ -3,10 +3,17 @@ import { QueryResult, DisplayMode, QueryBlock } from './types';
 import { QueryRunner } from './queryRunner';
 import { HttpFormatter } from './utils/httpFormatter';
 import { TabContentGenerator } from './utils/tabContentGenerator';
+import { PersistentResultsManager } from './persistentResultsManager';
+import { HistoryManager } from './historyManager';
 
 export class ResultsProvider {
     private static readonly RESULTS_START = '<!-- OpenSearch Results Start -->';
     private static readonly RESULTS_END = '<!-- OpenSearch Results End -->';
+    private historyManager: HistoryManager;
+
+    constructor(historyManager: HistoryManager) {
+        this.historyManager = historyManager;
+    }
 
     public async displayResults(
         result: QueryResult,
@@ -253,38 +260,8 @@ export class ResultsProvider {
         query: string,
         queryType: 'sql' | 'ppl' | 'opensearch-api'
     ): Promise<void> {
-        const panel = vscode.window.createWebviewPanel(
-            'opensearchResults',
-            'OpenSearch Query Results',
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true
-            }
-        );
-
-        panel.webview.html = this.generateResultsHtml(result, query, queryType);
-
-        // Handle messages from webview
-        panel.webview.onDidReceiveMessage(
-            async (message) => {
-                switch (message.command) {
-                    case 'showHistory':
-                        // Execute the show history command
-                        await vscode.commands.executeCommand('opensearch-query.showHistory');
-                        break;
-                }
-            }
-        );
-
-        // Show success/error message
-        if (result.success) {
-            vscode.window.showInformationMessage(
-                `Query executed successfully in ${result.executionTime}ms`
-            );
-        } else {
-            vscode.window.showErrorMessage(`Query failed: ${result.error}`);
-        }
+        const persistentManager = PersistentResultsManager.getInstance(this.historyManager);
+        await persistentManager.showResults(result, query, queryType);
     }
 
     private async displaySeparateTabResultsWithExplain(
@@ -293,38 +270,8 @@ export class ResultsProvider {
         query: string,
         queryType: 'sql' | 'ppl' | 'opensearch-api'
     ): Promise<void> {
-        const panel = vscode.window.createWebviewPanel(
-            'opensearchResults',
-            'OpenSearch Query Results',
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true
-            }
-        );
-
-        panel.webview.html = this.generateResultsHtmlWithExplain(result, explainResult, query, queryType);
-
-        // Handle messages from webview
-        panel.webview.onDidReceiveMessage(
-            async (message) => {
-                switch (message.command) {
-                    case 'showHistory':
-                        // Execute the show history command
-                        await vscode.commands.executeCommand('opensearch-query.showHistory');
-                        break;
-                }
-            }
-        );
-
-        // Show success/error message
-        if (result.success) {
-            vscode.window.showInformationMessage(
-                `Query executed successfully in ${result.executionTime}ms`
-            );
-        } else {
-            vscode.window.showErrorMessage(`Query failed: ${result.error}`);
-        }
+        const persistentManager = PersistentResultsManager.getInstance(this.historyManager);
+        await persistentManager.showResults(result, query, queryType, explainResult);
     }
 
     private generateResultsHtml(result: QueryResult, query: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {

@@ -74,6 +74,7 @@ export interface QueryHistoryItem {
     timestamp: Date;
     result: QueryResult;
     endpoint: string;
+    explainResult?: QueryResult;
 }
 
 export interface OpenSearchResponse {

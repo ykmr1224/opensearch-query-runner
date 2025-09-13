@@ -19,8 +19,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Initialize core components
     connectionManager = new ConnectionManager();
     queryRunner = new QueryRunner(connectionManager);
-    resultsProvider = new ResultsProvider();
     historyManager = new HistoryManager(context);
+    resultsProvider = new ResultsProvider(historyManager);
     codeLensProvider = new OpenSearchCodeLensProvider();
 
     // Register CodeLens provider
@@ -194,12 +194,13 @@ async function runQuery(
                 progress.report({ message: 'Executing explain query...' });
                 const explainResult = await queryRunner.executeExplainQueryFromBlock(queryBlock);
                 
-                // Add to history if separate tab mode
+                // Add to history if separate tab mode (including explain result)
                 await historyManager.addToHistory(
                     queryBlock.content,
                     queryBlock.type,
                     result,
-                    config!.endpoint
+                    config!.endpoint,
+                    explainResult
                 );
 
                 // Display results with explain

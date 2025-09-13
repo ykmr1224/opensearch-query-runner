@@ -43,7 +43,8 @@ export class HistoryManager {
         query: string,
         queryType: 'sql' | 'ppl' | 'opensearch-api',
         result: QueryResult,
-        endpoint: string
+        endpoint: string,
+        explainResult?: QueryResult
     ): Promise<void> {
         const historyItem: QueryHistoryItem = {
             id: this.generateId(),
@@ -51,7 +52,8 @@ export class HistoryManager {
             queryType,
             timestamp: new Date(),
             result,
-            endpoint
+            endpoint,
+            explainResult
         };
 
         // Add to beginning of history
