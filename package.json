@@ -141,6 +141,8 @@
     "test": "node ./out/test/runTest.js",
     "test:coverage": "c8 --reporter=text --reporter=html --reporter=lcov npm run test",
     "test:coverage-only": "c8 --reporter=text npm run test",
+    "manual-test": "node ./out/test/runManualTest.js dark",
+    "manual-test:light": "node ./out/test/runManualTest.js light",
     "coverage:report": "c8 report --reporter=html --reporter=lcov",
     "coverage:open": "open coverage/index.html",
     "clean": "rm -rf out coverage *.vsix",

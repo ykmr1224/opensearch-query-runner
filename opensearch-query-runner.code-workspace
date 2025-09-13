@@ -1,0 +1,36 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "workbench.colorCustomizations": {
+            "activityBar.background": "#4A148C",
+            "activityBar.foreground": "#E1BEE7",
+            "activityBar.inactiveForeground": "#B39DDB",
+            "titleBar.activeBackground": "#6A1B9A",
+            "titleBar.activeForeground": "#F3E5F5",
+            "titleBar.inactiveBackground": "#8E24AA",
+            "titleBar.inactiveForeground": "#E1BEE7",
+            "statusBar.background": "#7B1FA2",
+            "statusBar.foreground": "#F3E5F5",
+            "statusBar.noFolderBackground": "#4A148C",
+            "statusBar.debuggingBackground": "#AD1457",
+            "panel.background": "#2D1B69",
+            "panel.border": "#7B1FA2",
+            "sideBar.background": "#1A0E3A",
+            "sideBar.foreground": "#E1BEE7",
+            "sideBar.border": "#4A148C",
+            "editor.background": "#0D0221",
+            "editorGroupHeader.tabsBackground": "#1A0E3A",
+            "tab.activeBackground": "#4A148C",
+            "tab.activeForeground": "#F3E5F5",
+            "tab.inactiveBackground": "#2D1B69",
+            "tab.inactiveForeground": "#B39DDB"
+        }
+    },
+    "extensions": {
+        "recommendations": []
+    }
+}
