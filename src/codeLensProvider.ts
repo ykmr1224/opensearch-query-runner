@@ -41,21 +41,21 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
                 0
             );
 
-            // Add "Run Inline" command
+            // Add "Run in Tab" command (now first)
+            const runInTabLens = new vscode.CodeLens(range, {
+                title: '$(window) Run',
+                command: 'opensearch-query.runQueryInTab',
+                arguments: [document.uri, queryBlock.range.start]
+            });
+
+            // Add "Run Inline" command (now second)
             const runInlineLens = new vscode.CodeLens(range, {
                 title: '$(output) Inline',
                 command: 'opensearch-query.runQueryInline',
                 arguments: [document.uri, queryBlock.range.start]
             });
 
-            // Add "Run in Tab" command
-            const runInTabLens = new vscode.CodeLens(range, {
-                title: '$(window) Separate Tab',
-                command: 'opensearch-query.runQueryInTab',
-                arguments: [document.uri, queryBlock.range.start]
-            });
-
-            codeLenses.push(runInlineLens, runInTabLens);
+            codeLenses.push(runInTabLens, runInlineLens);
         }
 
         return codeLenses;

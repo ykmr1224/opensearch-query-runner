@@ -11,7 +11,9 @@
             "titleBar.activeForeground": "#E1BEE7",
             "titleBar.inactiveBackground": "#4A148C",
             "titleBar.inactiveForeground": "#B39DDB"
-        }
+        },
+        "opensearch.endpoint": "http://localhost:9200",
+        "opensearch.auth.type": "none"
     },
     "extensions": {
         "recommendations": []

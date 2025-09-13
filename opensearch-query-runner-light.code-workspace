@@ -5,7 +5,7 @@
         }
     ],
     "settings": {
-        "workbench.colorTheme": "Default Light Modern",
+        "workbench.colorTheme": "Visual Studio Light",
         "workbench.colorCustomizations": {
             "titleBar.activeBackground": "#E9D5FF",
             "titleBar.activeForeground": "#6B21A8",
