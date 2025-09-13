@@ -480,7 +480,7 @@ export class ResultsProvider {
                 </div>
                 
                 <div id="table" class="tab-content active">
-                    ${this.generateHtmlTable(result.data, result.columns)}
+                    ${this.generateHtmlTable(result.data, result.columns, result.rawResponse?.schema)}
                 </div>
                 
                 <div id="json" class="tab-content">
@@ -711,7 +711,7 @@ export class ResultsProvider {
         return debugContent;
     }
 
-    private generateHtmlTable(data: any[], columns?: string[]): string {
+    private generateHtmlTable(data: any[], columns?: string[], schema?: Array<{name: string, type: string}>): string {
         if (data.length === 0) {
             return '<p>No results found</p>';
         }
@@ -725,10 +725,20 @@ export class ResultsProvider {
             displayColumns = Object.keys(firstRow);
         }
 
+        // Create a map of column names to types for quick lookup
+        const columnTypeMap = new Map<string, string>();
+        if (schema) {
+            schema.forEach(col => {
+                columnTypeMap.set(col.name, col.type);
+            });
+        }
+
         // Create table
         let table = '<table><thead><tr>';
         displayColumns.forEach(col => {
-            table += `<th>${col}</th>`;
+            const columnType = columnTypeMap.get(col);
+            const tooltip = columnType ? ` title="Type: ${columnType}"` : '';
+            table += `<th${tooltip}>${col}</th>`;
         });
         table += '</tr></thead><tbody>';
 

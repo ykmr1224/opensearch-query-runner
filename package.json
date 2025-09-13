@@ -135,8 +135,8 @@
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
     "package": "vsce package",
-    "install": "code --install-extension opensearch-query-runner-0.1.0.vsix",
-    "reinstall": "npm run package && code --uninstall-extension opensearch-query.opensearch-query-runner && code --install-extension opensearch-query-runner-0.1.0.vsix",
+    "install": "code --install-extension ykmr1224.opensearch-query-runner-0.1.0.vsix",
+    "reinstall": "npm run package && code --uninstall-extension ykmr1224.opensearch-query-runner && code --install-extension opensearch-query-runner-0.1.0.vsix",
     "dev": "npm run compile && npm run reinstall"
   },
   "devDependencies": {

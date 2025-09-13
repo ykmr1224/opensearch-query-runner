@@ -25,7 +25,7 @@ This document demonstrates the major use cases of the OpenSearch Query Runner VS
 You can now override connection settings within markdown documents using configuration blocks. This is perfect for working with multiple clusters or different authentication methods:
 
 ```config
-@endpoint = 'http://localhost:9201'
+@endpoint = 'http://localhost:9200'
 @auth_type = 'none'
 @timeout = '30s'
 ```
