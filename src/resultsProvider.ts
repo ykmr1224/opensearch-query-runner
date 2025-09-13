@@ -283,9 +283,25 @@ export class ResultsProvider {
                 }
                 .query-info {
                     background-color: var(--vscode-textBlockQuote-background);
-                    border-left: 4px solid var(--vscode-textBlockQuote-border);
+                    border-left: 4px solid var(--vscode-button-background);
                     padding: 10px 15px;
                     margin-bottom: 20px;
+                    position: relative;
+                }
+                .query-type-label {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    padding: 4px 8px;
+                    font-size: 0.8em;
+                    font-weight: bold;
+                    text-transform: uppercase;
+                    z-index: 1;
+                }
+                .query-content {
+                    margin-top: 20px;
                 }
                 .success {
                     color: var(--vscode-testing-iconPassed);
@@ -374,9 +390,10 @@ export class ResultsProvider {
             </div>
 
             <div class="query-info">
-                <strong>Query Type:</strong> ${queryType.toUpperCase()}<br>
-                <strong>Query:</strong><br>
-                <pre>${query}</pre>
+                <div class="query-type-label">${queryType.toUpperCase()}</div>
+                <div class="query-content">
+                    <pre>${query}</pre>
+                </div>
             </div>
 
             ${this.generateResultContent(result)}
