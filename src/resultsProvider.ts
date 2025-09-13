@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import { QueryResult, QueryHistoryItem, DisplayMode } from './types';
+import { QueryResult, DisplayMode } from './types';
 
 export class ResultsProvider {
-    private static readonly RESULTS_MARKER = '<!-- OpenSearch Query Results -->';
     private static readonly RESULTS_START = '<!-- OpenSearch Results Start -->';
     private static readonly RESULTS_END = '<!-- OpenSearch Results End -->';
 
@@ -669,64 +668,6 @@ export class ResultsProvider {
         return content;
     }
 
-    private generateDebugSection(result: QueryResult): string {
-        let debugContent = '<div class="debug-section">';
-        
-        // Add complete QueryResult object for debugging
-        debugContent += `
-            <div class="debug-item">
-                <h3>🔍 Complete Query Result</h3>
-                <div class="json-container">
-                    <pre>${JSON.stringify(result, null, 2)}</pre>
-                </div>
-            </div>
-        `;
-        
-        // Add request information if available
-        if (result.requestInfo) {
-            debugContent += `
-                <div class="debug-item">
-                    <h3>📤 Request Details</h3>
-                    <div class="json-container">
-                        <pre>${JSON.stringify(result.requestInfo, null, 2)}</pre>
-                    </div>
-                </div>
-            `;
-        } else {
-            debugContent += `
-                <div class="debug-item">
-                    <h3>📤 Request Details</h3>
-                    <div class="json-container">
-                        <pre>No request information available</pre>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Add raw response
-        if (result.rawResponse) {
-            debugContent += `
-                <div class="debug-item">
-                    <h3>📥 Raw Response</h3>
-                    <div class="json-container">
-                        <pre>${JSON.stringify(result.rawResponse, null, 2)}</pre>
-                    </div>
-                </div>
-            `;
-        } else {
-            debugContent += `
-                <div class="debug-item">
-                    <h3>📥 Raw Response</h3>
-                    <div class="json-container">
-                        <pre>No raw response available</pre>
-                    </div>
-                </div>
-            `;
-        }
-        
-        debugContent += '</div>';
-        return debugContent;
-    }
 
     private generateHtmlTable(data: any[], columns?: string[], schema?: Array<{name: string, type: string}>): string {
         if (data.length === 0) {

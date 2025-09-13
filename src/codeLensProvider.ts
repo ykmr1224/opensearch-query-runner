@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import { MarkdownParser } from './markdownParser';
-import { QueryBlock, CodeLensCommand } from './types';
 
 export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();

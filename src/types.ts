@@ -119,9 +119,3 @@ export enum DisplayMode {
     Inline = 'inline',
     SeparateTab = 'separateTab'
 }
-
-export interface CodeLensCommand {
-    title: string;
-    command: string;
-    arguments?: any[];
-}

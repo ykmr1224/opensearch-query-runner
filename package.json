@@ -51,6 +51,11 @@
         "command": "opensearch-query.configureConnection",
         "title": "Configure Connection",
         "category": "OpenSearch"
+      },
+      {
+        "command": "opensearch-query.formatQuery",
+        "title": "Format Query",
+        "category": "OpenSearch"
       }
     ],
     "configuration": {

@@ -1,5 +1,5 @@
 {
-  "opensearch.endpoint": "http://localhost:9201",
+  "opensearch.endpoint": "http://localhost:9200",
   "opensearch.auth.type": "none",
   "workbench.colorCustomizations": {
     "activityBar.background": "#8B0000",
