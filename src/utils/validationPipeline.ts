@@ -97,7 +97,8 @@ export class ValidationPipeline {
                 return {
                     success: false,
                     error: result.error || `Validation failed: ${rule.name}`,
-                    executionTime: Date.now() - context.startTime
+                    executionTime: Date.now() - context.startTime,
+                    executedAt: new Date(context.startTime)
                 };
             }
         }

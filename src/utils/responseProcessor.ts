@@ -7,7 +7,8 @@ export class ResponseProcessor {
     public static processQueryResponse(
         response: OpenSearchResponse, 
         executionTime: number, 
-        queryType?: string
+        queryType?: string,
+        startTime?: number
     ): QueryResult {
         let data: any = null;
         let rowCount: number | undefined = undefined;
@@ -50,6 +51,7 @@ export class ResponseProcessor {
             success: true,
             data,
             executionTime,
+            executedAt: new Date(startTime || Date.now() - executionTime),
             rowCount,
             columns,
             rawResponse: response

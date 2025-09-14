@@ -126,7 +126,7 @@ export class ResultsProvider {
     }
 
     private formatInlineResults(result: QueryResult, query: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
-        const timestamp = new Date().toLocaleString();
+        const timestamp = result.executedAt.toLocaleString();
         let output = `\n${ResultsProvider.RESULTS_START}\n`;
         output += `**OpenSearch Query Results** (${timestamp})\n\n`;
 
@@ -293,7 +293,7 @@ export class ResultsProvider {
         queryType: 'sql' | 'ppl' | 'opensearch-api',
         explainResult?: QueryResult
     ): string {
-        const timestamp = new Date().toLocaleString();
+        const timestamp = result.executedAt.toLocaleString();
         const tabs = TabContentGenerator.generateResultTabs(result, explainResult);
         const tabsHtml = TabContentGenerator.generateTabsHtml(tabs);
         const metadata = HttpFormatter.generateMetadata(result, explainResult);
@@ -315,12 +315,6 @@ export class ResultsProvider {
                     <div class="header-left">
                         <h1>OpenSearch Query Results</h1>
                         <p>Executed at ${timestamp}</p>
-                    </div>
-                    <div class="header-right">
-                        <button class="btn history-btn" onclick="showHistory()" title="View Query History">
-                            <span class="icon">📋</span>
-                            History
-                        </button>
                     </div>
                 </div>
             </div>
@@ -515,11 +509,6 @@ export class ResultsProvider {
                     document.querySelector('[onclick="showTab(\\''+tabName+'\\')"]').classList.add('active');
                 }
 
-                function showHistory() {
-                    vscode.postMessage({
-                        command: 'showHistory'
-                    });
-                }
         `;
     }
 

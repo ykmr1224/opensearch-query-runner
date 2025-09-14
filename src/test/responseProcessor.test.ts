@@ -172,6 +172,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 rowCount: 2,
                 columns: ['id', 'name', 'age'],
                 data: [
@@ -194,6 +195,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 150,
+                executedAt: new Date(),
                 data: [{ id: 1, name: 'Test' }]
             };
 
@@ -209,7 +211,8 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: false,
                 error: 'Query parsing failed',
-                executionTime: 50
+                executionTime: 50,
+                executedAt: new Date()
             };
 
             const formatted = ResponseProcessor.formatResultForDisplay(result);
@@ -223,6 +226,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 25,
+                executedAt: new Date(),
                 rowCount: 0,
                 data: []
             };
@@ -385,6 +389,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data,
                 columns
             };
@@ -405,6 +410,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data,
                 columns
             };
@@ -426,6 +432,7 @@ suite('ResponseProcessor Tests', () => {
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data,
                 columns
             };

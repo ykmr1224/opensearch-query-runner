@@ -63,12 +63,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    const showHistoryCommand = vscode.commands.registerCommand(
-        'opensearch-query.showHistory',
-        async () => {
-            await historyManager.showHistoryPanel();
-        }
-    );
 
     const configureConnectionCommand = vscode.commands.registerCommand(
         'opensearch-query.configureConnection',
@@ -113,7 +107,6 @@ export function activate(context: vscode.ExtensionContext) {
         runQueryCommand,
         runQueryInlineCommand,
         runQueryInTabCommand,
-        showHistoryCommand,
         configureConnectionCommand,
         formatQueryCommand,
         statusBarItem,
@@ -377,7 +370,7 @@ POST /logs-2024/_doc
 1. **Configure Connection**: Click the OpenSearch status bar item or use Command Palette → "OpenSearch: Configure Connection"
 2. **Run Operations**: Click the "Run Query" CodeLens above any query block or API operation
 3. **Choose Display Mode**: Select "Inline" to show results in this document, or "Separate Tab" for a dedicated results view
-4. **View History**: Use Command Palette → "OpenSearch: Show Query History" to see previous queries
+4. **View History**: Query history is integrated into the results tab - previous queries appear as clickable squares at the top
 
 ## Query Types
 

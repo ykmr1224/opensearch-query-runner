@@ -72,6 +72,7 @@ Accept: application/json
                 success: false,
                 error: 'Test error',
                 executionTime: 100,
+                executedAt: new Date(),
                 responseInfo: {
                     status: 400,
                     statusText: 'Bad Request',
@@ -109,6 +110,7 @@ x-elastic-product: OpenSearch
                 success: false,
                 error: 'Test error',
                 executionTime: 100,
+                executedAt: new Date(),
                 responseInfo: {
                     status: 500,
                     statusText: 'Internal Server Error'
@@ -131,7 +133,8 @@ x-elastic-product: OpenSearch
             const result: QueryResult = {
                 success: false,
                 error: 'Network error',
-                executionTime: 100
+                executionTime: 100,
+                executedAt: new Date()
             };
 
             const formatted = HttpFormatter.formatRawResponse(result);
@@ -143,6 +146,7 @@ x-elastic-product: OpenSearch
                 success: false,
                 error: 'Test error',
                 executionTime: 100,
+                executedAt: new Date(),
                 responseInfo: {
                     status: 404,
                     statusText: 'Not Found',
@@ -167,6 +171,7 @@ content-type: application/json
                 success: false,
                 error: 'Test error',
                 executionTime: 100,
+                executedAt: new Date(),
                 requestInfo: {
                     method: 'POST',
                     endpoint: '/_bulk',
@@ -187,7 +192,8 @@ content-type: application/json
             const result: QueryResult = {
                 success: false,
                 error: 'Test error',
-                executionTime: 100
+                executionTime: 100,
+                executedAt: new Date()
             };
 
             const section = HttpFormatter.generateRawRequestSection(result);
@@ -202,6 +208,7 @@ content-type: application/json
                 success: false,
                 error: 'Test error',
                 executionTime: 100,
+                executedAt: new Date(),
                 responseInfo: {
                     status: 400,
                     statusText: 'Bad Request',
@@ -222,6 +229,7 @@ content-type: application/json
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data: []
             };
 
@@ -294,6 +302,7 @@ content-type: application/json
             const result: QueryResult = {
                 success: true,
                 executionTime: 150,
+                executedAt: new Date(),
                 rowCount: 25,
                 data: []
             };
@@ -310,7 +319,8 @@ content-type: application/json
             const result: QueryResult = {
                 success: false,
                 error: 'Query failed',
-                executionTime: 75
+                executionTime: 75,
+                executedAt: new Date()
             };
 
             const metadata = HttpFormatter.generateMetadata(result);
@@ -325,12 +335,14 @@ content-type: application/json
             const result: QueryResult = {
                 success: true,
                 executionTime: 200,
+                executedAt: new Date(),
                 data: []
             };
 
             const explainResult: QueryResult = {
                 success: true,
                 executionTime: 50,
+                executedAt: new Date(),
                 data: { plan: 'execution plan' }
             };
 
@@ -345,13 +357,15 @@ content-type: application/json
             const result: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data: []
             };
 
             const explainResult: QueryResult = {
                 success: false,
                 error: 'Explain failed',
-                executionTime: 25
+                executionTime: 25,
+                executedAt: new Date()
             };
 
             const metadata = HttpFormatter.generateMetadata(result, explainResult);

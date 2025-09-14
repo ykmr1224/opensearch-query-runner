@@ -43,11 +43,6 @@
         "category": "OpenSearch"
       },
       {
-        "command": "opensearch-query.showHistory",
-        "title": "Show Query History",
-        "category": "OpenSearch"
-      },
-      {
         "command": "opensearch-query.configureConnection",
         "title": "Configure Connection",
         "category": "OpenSearch"

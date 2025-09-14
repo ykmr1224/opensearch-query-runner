@@ -80,9 +80,6 @@ export class PersistentResultsManager {
                         case 'deleteHistory':
                             await this.handleHistoryDelete(message.historyId);
                             break;
-                        case 'showHistory':
-                            await vscode.commands.executeCommand('opensearch-query.showHistory');
-                            break;
                     }
                 } catch (error) {
                     console.error('Error handling webview message:', error);
@@ -157,7 +154,7 @@ export class PersistentResultsManager {
         queryType: 'sql' | 'ppl' | 'opensearch-api',
         explainResult?: QueryResult
     ): string {
-        const timestamp = new Date().toLocaleString();
+        const timestamp = result.executedAt.toLocaleString();
         const tabs = TabContentGenerator.generateResultTabs(result, explainResult);
         const tabsHtml = TabContentGenerator.generateTabsHtml(tabs);
         const metadata = HttpFormatter.generateMetadata(result, explainResult);
@@ -180,12 +177,6 @@ export class PersistentResultsManager {
                     <div class="header-left">
                         <h1>OpenSearch Query Results</h1>
                         <p>Executed at ${timestamp}</p>
-                    </div>
-                    <div class="header-right">
-                        <button class="btn history-btn" onclick="showHistory()" title="View Query History">
-                            <span class="icon">📋</span>
-                            History
-                        </button>
                     </div>
                 </div>
             </div>
@@ -371,8 +362,8 @@ export class PersistentResultsManager {
                     border-radius: 3px;
                     cursor: pointer;
                     font-weight: bold;
-                    font-size: 0.7em;
-                    color: white !important;
+                    font-size: 1.0em;
+                    color: black !important;
                     transition: all 0.2s ease;
                     border: 2px solid transparent;
                 }
@@ -516,11 +507,6 @@ export class PersistentResultsManager {
                     document.querySelector('[onclick="showTab(\\''+tabName+'\\')"]').classList.add('active');
                 }
 
-                function showHistory() {
-                    vscode.postMessage({
-                        command: 'showHistory'
-                    });
-                }
 
                 function selectHistory(historyId) {
                     vscode.postMessage({

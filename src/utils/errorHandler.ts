@@ -54,6 +54,7 @@ export class ErrorHandler {
             success: false,
             error: customMessage || error.message || 'Unknown error occurred',
             executionTime: Date.now() - startTime,
+            executedAt: new Date(startTime),
             requestInfo,
             responseInfo,
             rawResponse
@@ -71,6 +72,7 @@ export class ErrorHandler {
             success: false,
             error: `${response.error.type}: ${response.error.reason}`,
             executionTime: Date.now() - startTime,
+            executedAt: new Date(startTime),
             rawResponse: response
         };
         

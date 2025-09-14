@@ -185,6 +185,7 @@ suite('RequestInfoBuilder Tests', () => {
             const response: QueryResult = {
                 success: true,
                 executionTime: 100,
+                executedAt: new Date(),
                 data: { acknowledged: true }
             };
 
@@ -207,7 +208,8 @@ suite('RequestInfoBuilder Tests', () => {
             const response: QueryResult = {
                 success: false,
                 error: 'Query failed',
-                executionTime: 50
+                executionTime: 50,
+                executedAt: new Date()
             };
 
             const requestInfo = {
@@ -230,6 +232,7 @@ suite('RequestInfoBuilder Tests', () => {
             const response: QueryResult = {
                 success: true,
                 executionTime: 200,
+                executedAt: new Date(),
                 data: []
             };
 
@@ -250,7 +253,8 @@ suite('RequestInfoBuilder Tests', () => {
             const response: QueryResult = {
                 success: false,
                 error: 'Bad request',
-                executionTime: 25
+                executionTime: 25,
+                executedAt: new Date()
             };
 
             const responseInfo = {

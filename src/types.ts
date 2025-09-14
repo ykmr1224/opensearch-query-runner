@@ -51,6 +51,7 @@ export interface QueryResult {
     data?: any;
     error?: string;
     executionTime: number;
+    executedAt: Date;
     rowCount?: number;
     columns?: string[];
     rawResponse?: any;

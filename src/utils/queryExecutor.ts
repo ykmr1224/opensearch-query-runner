@@ -23,7 +23,7 @@ export class QueryExecutionEngine {
     public static async executeWithErrorHandling<T>(
         context: QueryExecutionContext,
         executor: (context: QueryExecutionContext) => Promise<T>,
-        responseProcessor: (response: T, executionTime: number, queryType?: string) => QueryResult
+        responseProcessor: (response: T, executionTime: number, queryType?: string, startTime?: number) => QueryResult
     ): Promise<QueryResult> {
         try {
             // Execute the query operation
@@ -36,7 +36,7 @@ export class QueryExecutionEngine {
             }
 
             // Process successful response
-            const result = responseProcessor(response, executionTime, context.queryType);
+            const result = responseProcessor(response, executionTime, context.queryType, context.startTime);
             
             // Add request/response info if available
             const responseWithInfo = response as any;

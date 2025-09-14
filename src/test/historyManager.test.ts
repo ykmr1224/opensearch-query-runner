@@ -26,6 +26,7 @@ suite('HistoryManager Test Suite', () => {
         const result: QueryResult = {
             success: true,
             executionTime: 100,
+            executedAt: new Date(),
             rowCount: 5,
             data: []
         };
@@ -47,6 +48,7 @@ suite('HistoryManager Test Suite', () => {
         const result: QueryResult = {
             success: true,
             executionTime: 100,
+            executedAt: new Date(),
             rowCount: 5,
             data: []
         };
@@ -71,6 +73,7 @@ suite('HistoryManager Test Suite', () => {
         const result: QueryResult = {
             success: true,
             executionTime: 100,
+            executedAt: new Date(),
             rowCount: 5,
             data: []
         };
@@ -93,6 +96,7 @@ suite('HistoryManager Test Suite', () => {
         const result: QueryResult = {
             success: true,
             executionTime: 100,
+            executedAt: new Date(),
             rowCount: 5,
             data: []
         };
@@ -116,6 +120,7 @@ suite('HistoryManager Test Suite', () => {
         const successResult: QueryResult = {
             success: true,
             executionTime: 100,
+            executedAt: new Date(),
             rowCount: 5,
             data: []
         };
@@ -123,6 +128,7 @@ suite('HistoryManager Test Suite', () => {
         const errorResult: QueryResult = {
             success: false,
             executionTime: 0,
+            executedAt: new Date(),
             error: 'Connection failed'
         };
 

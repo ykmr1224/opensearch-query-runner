@@ -93,7 +93,8 @@ export class QueryRunner {
             return {
                 success: false,
                 error: 'Explain is only supported for SQL and PPL queries',
-                executionTime: 0
+                executionTime: 0,
+                executedAt: new Date()
             };
         }
 
