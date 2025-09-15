@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { MarkdownParser } from '../markdownParser';
+import { DocumentParser } from '../documentParser';
 
 // Mock vscode.Range constructor
 const mockRange = (startLine: number, startChar: number, endLine: number, endChar: number) => ({
@@ -43,7 +43,7 @@ SELECT * FROM test_index LIMIT 10
             }
         } as vscode.TextDocument;
 
-        const configBlocks = MarkdownParser.parseConfigurationBlocks(document);
+        const configBlocks = DocumentParser.parseConfigurationBlocks(document);
         
         assert.strictEqual(configBlocks.length, 1);
         assert.strictEqual(configBlocks[0].config.endpoint, 'http://localhost:9200');
@@ -88,7 +88,7 @@ SELECT * FROM prod_index LIMIT 10
             }
         } as vscode.TextDocument;
 
-        const queryBlocks = MarkdownParser.parseDocumentWithOverrides(document);
+        const queryBlocks = DocumentParser.parseDocumentWithOverrides(document);
         
         assert.strictEqual(queryBlocks.length, 2);
         
@@ -114,7 +114,7 @@ SELECT * FROM prod_index LIMIT 10
             timeout: 30000
         };
 
-        const validResult = MarkdownParser.validateConnectionOverrides(validConfig);
+        const validResult = DocumentParser.validateConnectionOverrides(validConfig);
         assert.strictEqual(validResult.valid, true);
 
         // Invalid endpoint
@@ -122,7 +122,7 @@ SELECT * FROM prod_index LIMIT 10
             endpoint: 'not-a-url'
         };
 
-        const invalidResult = MarkdownParser.validateConnectionOverrides(invalidEndpoint);
+        const invalidResult = DocumentParser.validateConnectionOverrides(invalidEndpoint);
         assert.strictEqual(invalidResult.valid, false);
         assert.ok(invalidResult.error?.includes('Invalid endpoint URL'));
 
@@ -134,7 +134,7 @@ SELECT * FROM prod_index LIMIT 10
             }
         };
 
-        const missingPasswordResult = MarkdownParser.validateConnectionOverrides(missingPassword);
+        const missingPasswordResult = DocumentParser.validateConnectionOverrides(missingPassword);
         assert.strictEqual(missingPasswordResult.valid, false);
         assert.ok(missingPasswordResult.error?.includes('Basic auth requires both username and password'));
     });
@@ -164,7 +164,7 @@ SELECT * FROM prod_index LIMIT 10
             }
         } as vscode.TextDocument;
 
-        const configBlocks = MarkdownParser.parseConfigurationBlocks(document);
+        const configBlocks = DocumentParser.parseConfigurationBlocks(document);
         
         assert.strictEqual(configBlocks.length, 3);
         assert.strictEqual(configBlocks[0].config.endpoint, 'http://test1:9200');
@@ -189,7 +189,7 @@ SELECT * FROM prod_index LIMIT 10
             }
         } as vscode.TextDocument;
 
-        const configBlocks = MarkdownParser.parseConfigurationBlocks(document);
+        const configBlocks = DocumentParser.parseConfigurationBlocks(document);
         
         assert.strictEqual(configBlocks.length, 1);
         assert.strictEqual(configBlocks[0].config.timeout, 30000); // 30 seconds in milliseconds

@@ -22,7 +22,8 @@
     "rest"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onLanguage:restructuredtext"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -107,22 +108,22 @@
       "editor/context": [
         {
           "command": "opensearch-query.runQuery",
-          "when": "resourceExtname == .md",
+          "when": "resourceExtname == .md || resourceExtname == .rst",
           "group": "opensearch"
         }
       ],
       "commandPalette": [
         {
           "command": "opensearch-query.runQuery",
-          "when": "resourceExtname == .md"
+          "when": "resourceExtname == .md || resourceExtname == .rst"
         },
         {
           "command": "opensearch-query.runQueryInline",
-          "when": "resourceExtname == .md"
+          "when": "resourceExtname == .md || resourceExtname == .rst"
         },
         {
           "command": "opensearch-query.runQueryInTab",
-          "when": "resourceExtname == .md"
+          "when": "resourceExtname == .md || resourceExtname == .rst"
         }
       ]
     }
@@ -169,7 +170,8 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "restructured": "^0.0.11"
   },
   "repository": {
     "type": "git",

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { MarkdownParser } from './markdownParser';
+import { DocumentParser } from './documentParser';
 
 export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -24,13 +24,13 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
             return [];
         }
 
-        // Only provide CodeLens for markdown files
-        if (document.languageId !== 'markdown') {
+        // Only provide CodeLens for markdown and RST files
+        if (document.languageId !== 'markdown' && document.languageId !== 'restructuredtext') {
             return [];
         }
 
         const codeLenses: vscode.CodeLens[] = [];
-        const queryBlocks = MarkdownParser.parseDocumentWithOverrides(document);
+        const queryBlocks = DocumentParser.parseDocumentWithOverrides(document);
 
         for (const queryBlock of queryBlocks) {
             // Create CodeLens at the start of each query block
@@ -81,14 +81,14 @@ export class OpenSearchCodeActionProvider implements vscode.CodeActionProvider {
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): vscode.CodeAction[] | Thenable<vscode.CodeAction[]> {
-        // Only provide code actions for markdown files
-        if (document.languageId !== 'markdown') {
+        // Only provide code actions for markdown and RST files
+        if (document.languageId !== 'markdown' && document.languageId !== 'restructuredtext') {
             return [];
         }
 
         const actions: vscode.CodeAction[] = [];
         const position = range.start;
-        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
+        const queryBlock = DocumentParser.findQueryBlockAtPositionWithOverrides(document, position);
 
         if (queryBlock) {
             // Add "Run Query" action
@@ -128,7 +128,7 @@ export class OpenSearchCodeActionProvider implements vscode.CodeActionProvider {
             actions.push(runInTabAction);
 
             // Add validation action if query is invalid
-            const validation = MarkdownParser.validateQuery(queryBlock.content, queryBlock.type, queryBlock.metadata);
+            const validation = DocumentParser.validateQuery(queryBlock.content, queryBlock.type, queryBlock.metadata);
             if (!validation.valid) {
                 const validationAction = new vscode.CodeAction(
                     `Fix Query: ${validation.error}`,
@@ -161,12 +161,12 @@ export class OpenSearchHoverProvider implements vscode.HoverProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): vscode.Hover | Thenable<vscode.Hover> | null {
-        // Only provide hover for markdown files
-        if (document.languageId !== 'markdown') {
+        // Only provide hover for markdown and RST files
+        if (document.languageId !== 'markdown' && document.languageId !== 'restructuredtext') {
             return null;
         }
 
-        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
+        const queryBlock = DocumentParser.findQueryBlockAtPositionWithOverrides(document, position);
         if (!queryBlock) {
             return null;
         }
@@ -227,7 +227,7 @@ export class OpenSearchHoverProvider implements vscode.HoverProvider {
         }
 
         // Add validation info
-        const validation = MarkdownParser.validateQuery(queryBlock.content, queryBlock.type, queryBlock.metadata);
+        const validation = DocumentParser.validateQuery(queryBlock.content, queryBlock.type, queryBlock.metadata);
         const validationInfo = new vscode.MarkdownString();
         
         if (validation.valid) {

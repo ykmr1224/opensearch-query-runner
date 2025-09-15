@@ -1,5 +1,5 @@
 import { QueryResult, ConnectionOverrides } from '../types';
-import { MarkdownParser } from '../markdownParser';
+import { DocumentParser } from '../documentParser';
 
 export interface ValidationContext {
     query: string;
@@ -113,7 +113,7 @@ export class ValidationPipeline {
             return { valid: true };
         }
 
-        const validation = MarkdownParser.validateConnectionOverrides(context.connectionOverrides);
+        const validation = DocumentParser.validateConnectionOverrides(context.connectionOverrides);
         return {
             valid: validation.valid,
             error: validation.valid ? undefined : `Connection override error: ${validation.error}`
@@ -124,7 +124,7 @@ export class ValidationPipeline {
      * Validates query syntax and structure
      */
     private static validateQuerySyntax(context: ValidationContext): ValidationResult {
-        const validation = MarkdownParser.validateQuery(context.query, context.queryType, context.metadata);
+        const validation = DocumentParser.validateQuery(context.query, context.queryType, context.metadata);
         return {
             valid: validation.valid,
             error: validation.error

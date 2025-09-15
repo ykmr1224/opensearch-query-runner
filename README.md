@@ -1,11 +1,11 @@
 # OpenSearch Query Runner
 
-A VSCode extension that allows you to execute SQL and PPL queries against OpenSearch clusters directly from markdown files, similar to the REST Client extension.
+A VSCode extension that allows you to execute SQL and PPL queries against OpenSearch clusters directly from markdown and reStructuredText (RST) files, similar to the REST Client extension.
 
 ## Features
 
 - 🔍 **Execute SQL, PPL, and REST API queries** against OpenSearch clusters
-- 📝 **Markdown integration** - Write queries in code blocks with syntax highlighting
+- 📝 **Markdown and RST integration** - Write queries in code blocks with syntax highlighting
 - 🎯 **CodeLens support** - Click "Run Query" buttons above query blocks
 - 📊 **Dual display modes** - View results inline or in a separate tab
 - 📚 **Query history** - Track and rerun previous queries (separate tab mode)
@@ -20,7 +20,7 @@ A VSCode extension that allows you to execute SQL and PPL queries against OpenSe
 2. **Configure your OpenSearch connection**:
    - Click the OpenSearch status bar item, or
    - Use Command Palette → "OpenSearch: Configure Connection"
-3. **Create a markdown file** with SQL or PPL queries:
+3. **Create a markdown or RST file** with SQL or PPL queries:
 
 ```sql
 -- Description: Get recent log entries
@@ -45,7 +45,9 @@ source=logs
 
 ### Writing Queries
 
-Create code blocks in markdown files using `sql`, `ppl`, or `opensearch-api` language identifiers:
+Create code blocks in markdown or RST files using `sql`, `ppl`, or `opensearch-api` language identifiers:
+
+**Markdown Format:**
 
 ````markdown
 ```sql
@@ -68,6 +70,29 @@ GET /my_index/_search
 ```
 ````
 
+**reStructuredText (RST) Format:**
+
+````rst
+.. code-block:: sql
+
+   SELECT * FROM my_index WHERE field = 'value'
+
+.. code-block:: ppl
+
+   source=my_index | where field='value' | head 10
+
+.. code-block:: opensearch-api
+
+   GET /my_index/_search
+   {
+     "query": {
+       "match": {
+         "field": "value"
+       }
+     }
+   }
+````
+
 ### OpenSearch REST API Queries
 
 The extension supports OpenSearch REST API operations using two flexible formats:
@@ -76,6 +101,7 @@ The extension supports OpenSearch REST API operations using two flexible formats
 
 Use the familiar HTTP request line format at the beginning of your API blocks:
 
+**Markdown:**
 ````markdown
 ```opensearch-api
 GET /logs/_search
@@ -100,10 +126,36 @@ POST /logs/_doc
 ```
 ````
 
+**reStructuredText (RST):**
+````rst
+.. code-block:: opensearch-api
+
+   GET /logs/_search
+   # Description: Search for error logs
+   {
+     "query": {
+       "match": {
+         "level": "ERROR"
+       }
+     }
+   }
+
+.. code-block:: opensearch-api
+
+   POST /logs/_doc
+   # Description: Index a new log entry
+   {
+     "timestamp": "2024-01-15T10:00:00Z",
+     "level": "INFO",
+     "message": "Application started"
+   }
+````
+
 #### Traditional Metadata Format (Still Supported)
 
 Use metadata comments to specify method and endpoint:
 
+**Markdown:**
 ````markdown
 ```opensearch-api
 -- Method: GET
@@ -117,6 +169,22 @@ Use metadata comments to specify method and endpoint:
   }
 }
 ```
+````
+
+**reStructuredText (RST):**
+````rst
+.. code-block:: opensearch-api
+
+   # Method: GET
+   # Endpoint: /logs/_search
+   # Description: Search for error logs
+   {
+     "query": {
+       "match": {
+         "level": "ERROR"
+       }
+     }
+   }
 ````
 
 **Key Features:**
@@ -136,12 +204,23 @@ Use metadata comments to specify method and endpoint:
 
 Add metadata to your queries using comments:
 
+**Markdown:**
 ```sql
 -- Description: What this query does
 -- Timeout: 30s
 -- Connection: my-cluster
 SELECT * FROM logs LIMIT 10
 ```
+
+**reStructuredText (RST):**
+```sql
+# Description: What this query does
+# Timeout: 30s
+# Connection: my-cluster
+SELECT * FROM logs LIMIT 10
+```
+
+**Note:** RST uses `#` for comments while markdown uses `--`.
 
 ### Running Queries
 
@@ -179,12 +258,13 @@ Configure the extension through VSCode settings:
 
 ## Per-Document Configuration
 
-You can override connection settings within markdown documents using configuration blocks. This is perfect for working with multiple clusters or different authentication methods in a single document.
+You can override connection settings within markdown and RST documents using configuration blocks. This is perfect for working with multiple clusters or different authentication methods in a single document.
 
 ### Configuration Block Syntax
 
 Create configuration blocks using `config`, `opensearch-config`, or `connection` language identifiers:
 
+**Markdown:**
 ````markdown
 ```config
 @endpoint = 'http://localhost:9200'
@@ -196,6 +276,20 @@ Create configuration blocks using `config`, `opensearch-config`, or `connection`
 -- This query uses the configuration above
 SELECT * FROM my_index LIMIT 10
 ```
+````
+
+**reStructuredText (RST):**
+````rst
+.. code-block:: config
+
+   @endpoint = 'http://localhost:9200'
+   @auth_type = 'none'
+   @timeout = '30s'
+
+.. code-block:: sql
+
+   # This query uses the configuration above
+   SELECT * FROM my_index LIMIT 10
 ````
 
 ### Supported Configuration Variables
@@ -211,6 +305,7 @@ SELECT * FROM my_index LIMIT 10
 
 ### Multi-Cluster Example
 
+**Markdown:**
 ````markdown
 # Development Environment
 ```config
@@ -238,6 +333,38 @@ SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
 ```
 ````
 
+**reStructuredText (RST):**
+````rst
+Development Environment
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: config
+
+   @endpoint = 'http://localhost:9200'
+   @auth_type = 'none'
+
+.. code-block:: sql
+
+   # Query development cluster
+   SELECT COUNT(*) FROM dev_logs
+
+Production Environment
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: config
+
+   @endpoint = 'https://prod-cluster:9200'
+   @auth_type = 'basic'
+   @username = 'readonly'
+   @password = 'secure_password'
+   @timeout = '60s'
+
+.. code-block:: sql
+
+   # Query production cluster with extended timeout
+   SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
+````
+
 ### Configuration Cascade Behavior
 
 - Configuration blocks apply to all queries that follow them in the document
@@ -258,6 +385,13 @@ SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
 - VSCode 1.74.0 or higher
 - Access to an OpenSearch cluster
 - OpenSearch cluster with SQL/PPL plugins enabled
+
+## Supported File Types
+
+- **Markdown** (`.md`) - Traditional markdown syntax with ` ``` ` code blocks
+- **reStructuredText** (`.rst`) - RST syntax with `.. code-block::` directives
+- Both formats support the same query types and features
+- Comments use `--` in markdown and `#` in RST files
 
 ## Extension Settings
 
@@ -284,8 +418,10 @@ SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
 
 Initial release with core functionality:
 - SQL and PPL query execution
+- **reStructuredText (RST) support** - Full support for `.rst` files with `.. code-block::` syntax
+- **Dual format support** - Both markdown (`.md`) and RST (`.rst`) files supported
 - OpenSearch REST API support with HTTP request line format (`GET /index/_search`)
-- Backwards compatible metadata comment format (`-- Method: GET`)
+- Backwards compatible metadata comment format (`-- Method: GET` for markdown, `# Method: GET` for RST)
 - Inline and separate tab result display
 - Query history management
 - CodeLens integration
@@ -294,6 +430,7 @@ Initial release with core functionality:
 - Multi-cluster support with cascade behavior
 - Configuration validation and error handling
 - Flexible format mixing (HTTP request line + metadata comments)
+- **Comment syntax adaptation** - Automatic handling of `--` comments in markdown and `#` comments in RST
 
 ## Developer Guide
 

@@ -63,12 +63,31 @@ export class ResultsProvider {
         const text = document.getText();
         const lines = text.split('\n');
         let insertLine = position.line;
+        const isRst = document.languageId === 'restructuredtext';
 
-        // Find the closing ``` of the code block
-        for (let i = position.line; i < lines.length; i++) {
-            if (lines[i].trim() === '```') {
-                insertLine = i + 1;
-                break;
+        if (isRst) {
+            // For RST, find the end of the code-block content
+            // Start from the position and look for the end of indented content
+            for (let i = position.line + 1; i < lines.length; i++) {
+                const line = lines[i];
+                // If we hit a non-indented line that's not empty, or another directive, we've found the end
+                if (line.length > 0 && !line.match(/^\s/) && !line.match(/^\s*$/)) {
+                    insertLine = i;
+                    break;
+                }
+                // If we reach the end of the document
+                if (i === lines.length - 1) {
+                    insertLine = i + 1;
+                    break;
+                }
+            }
+        } else {
+            // For Markdown, find the closing ``` of the code block
+            for (let i = position.line; i < lines.length; i++) {
+                if (lines[i].trim() === '```') {
+                    insertLine = i + 1;
+                    break;
+                }
             }
         }
 
@@ -208,7 +227,7 @@ export class ResultsProvider {
             }
         }
 
-        output += `${ResultsProvider.RESULTS_END}\n`;
+        output += `${ResultsProvider.RESULTS_END}\n\n`;
         return output;
     }
 

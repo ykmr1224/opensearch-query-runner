@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ConnectionManager } from './connectionManager';
-import { MarkdownParser } from './markdownParser';
+import { DocumentParser } from './documentParser';
 import { QueryResult, QueryBlock, OpenSearchResponse, DisplayMode, ConnectionOverrides } from './types';
 import { QueryExecutionEngine, QueryExecutionContext } from './utils/queryExecutor';
 import { ResponseProcessor } from './utils/responseProcessor';
@@ -111,7 +111,7 @@ export class QueryRunner {
         document: vscode.TextDocument, 
         position: vscode.Position
     ): Promise<QueryResult | null> {
-        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, position);
+        const queryBlock = DocumentParser.findQueryBlockAtPositionWithOverrides(document, position);
         
         if (!queryBlock) {
             vscode.window.showWarningMessage('No query block found at cursor position');
@@ -128,7 +128,7 @@ export class QueryRunner {
         document: vscode.TextDocument, 
         position: vscode.Position
     ): Promise<QueryResult | null> {
-        const queryBlocks = MarkdownParser.parseDocumentWithOverrides(document);
+        const queryBlocks = DocumentParser.parseDocumentWithOverrides(document);
         
         for (const block of queryBlocks) {
             if (block.range.contains(position)) {
@@ -164,7 +164,7 @@ export class QueryRunner {
     }
 
     public getQuerySummary(queryBlock: QueryBlock): string {
-        const preview = MarkdownParser.getQueryPreview(queryBlock.content);
+        const preview = DocumentParser.getQueryPreview(queryBlock.content);
         const type = queryBlock.type.toUpperCase();
         return `${type}: ${preview}`;
     }

@@ -3,7 +3,7 @@ import { ConnectionManager } from './connectionManager';
 import { QueryRunner } from './queryRunner';
 import { ResultsProvider } from './resultsProvider';
 import { HistoryManager } from './historyManager';
-import { MarkdownParser } from './markdownParser';
+import { DocumentParser } from './documentParser';
 import { OpenSearchCodeLensProvider, OpenSearchCodeActionProvider, OpenSearchHoverProvider } from './codeLensProvider';
 import { DisplayMode } from './types';
 
@@ -23,21 +23,33 @@ export function activate(context: vscode.ExtensionContext) {
     resultsProvider = new ResultsProvider(historyManager);
     codeLensProvider = new OpenSearchCodeLensProvider();
 
-    // Register CodeLens provider
-    const codeLensDisposable = vscode.languages.registerCodeLensProvider(
+    // Register CodeLens provider for both markdown and RST
+    const codeLensDisposableMarkdown = vscode.languages.registerCodeLensProvider(
         { language: 'markdown' },
         codeLensProvider
     );
+    const codeLensDisposableRst = vscode.languages.registerCodeLensProvider(
+        { language: 'restructuredtext' },
+        codeLensProvider
+    );
 
-    // Register Code Action provider
-    const codeActionDisposable = vscode.languages.registerCodeActionsProvider(
+    // Register Code Action provider for both markdown and RST
+    const codeActionDisposableMarkdown = vscode.languages.registerCodeActionsProvider(
         { language: 'markdown' },
         new OpenSearchCodeActionProvider()
     );
+    const codeActionDisposableRst = vscode.languages.registerCodeActionsProvider(
+        { language: 'restructuredtext' },
+        new OpenSearchCodeActionProvider()
+    );
 
-    // Register Hover provider
-    const hoverDisposable = vscode.languages.registerHoverProvider(
+    // Register Hover provider for both markdown and RST
+    const hoverDisposableMarkdown = vscode.languages.registerHoverProvider(
         { language: 'markdown' },
+        new OpenSearchHoverProvider()
+    );
+    const hoverDisposableRst = vscode.languages.registerHoverProvider(
+        { language: 'restructuredtext' },
         new OpenSearchHoverProvider()
     );
 
@@ -101,9 +113,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Add all disposables to context
     context.subscriptions.push(
-        codeLensDisposable,
-        codeActionDisposable,
-        hoverDisposable,
+        codeLensDisposableMarkdown,
+        codeLensDisposableRst,
+        codeActionDisposableMarkdown,
+        codeActionDisposableRst,
+        hoverDisposableMarkdown,
+        hoverDisposableRst,
         runQueryCommand,
         runQueryInlineCommand,
         runQueryInTabCommand,
@@ -134,8 +149,8 @@ async function runQuery(
         }
 
         const document = editor.document;
-        if (document.languageId !== 'markdown') {
-            vscode.window.showErrorMessage('OpenSearch queries can only be run from markdown files');
+        if (document.languageId !== 'markdown' && document.languageId !== 'restructuredtext') {
+            vscode.window.showErrorMessage('OpenSearch queries can only be run from markdown and RST files');
             return;
         }
 
@@ -143,7 +158,7 @@ async function runQuery(
         const queryPosition = position || editor.selection.active;
 
         // Find query block at position with configuration overrides
-        const queryBlock = MarkdownParser.findQueryBlockAtPositionWithOverrides(document, queryPosition);
+        const queryBlock = DocumentParser.findQueryBlockAtPositionWithOverrides(document, queryPosition);
         if (!queryBlock) {
             vscode.window.showWarningMessage('No query block found at cursor position');
             return;
@@ -246,14 +261,14 @@ async function formatQuery(uri?: vscode.Uri, position?: vscode.Position): Promis
         const document = editor.document;
         const queryPosition = position || editor.selection.active;
 
-        const queryBlock = MarkdownParser.findQueryBlockAtPosition(document, queryPosition);
+        const queryBlock = DocumentParser.findQueryBlockAtPosition(document, queryPosition);
         if (!queryBlock) {
             vscode.window.showWarningMessage('No query block found at cursor position');
             return;
         }
 
         // Format the query
-        const formattedQuery = MarkdownParser.formatQuery(queryBlock.content, queryBlock.type);
+        const formattedQuery = DocumentParser.formatQuery(queryBlock.content, queryBlock.type);
 
         // Replace the query content
         const queryStart = new vscode.Position(queryBlock.range.start.line + 1, 0);

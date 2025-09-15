@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { MarkdownParser } from '../markdownParser';
+import { DocumentParser } from '../documentParser';
 
 suite('HTTP Request Line Parsing Tests', () => {
     
@@ -30,7 +30,7 @@ GET /sample_logs/_search
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].type, 'opensearch-api');
@@ -59,7 +59,7 @@ POST /sample_logs/_doc
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'POST');
@@ -88,7 +88,7 @@ PUT /sample_logs
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'PUT');
@@ -103,7 +103,7 @@ DELETE /sample_logs/_doc/123
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'DELETE');
@@ -126,7 +126,7 @@ GET /sample_logs/_search
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'GET');
@@ -150,7 +150,7 @@ GET /sample_logs/_search
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         // Metadata comments should override HTTP request line
@@ -170,7 +170,7 @@ POST /_bulk
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'POST');
@@ -196,7 +196,7 @@ POST /_bulk
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'GET');
@@ -218,7 +218,7 @@ GET /sample_logs/_search?size=10&from=0&sort=timestamp:desc
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'GET');
@@ -239,8 +239,8 @@ GET /sample_logs/_search
         `;
         
         const document = createMockDocument(validContent);
-        const blocks = MarkdownParser.parseDocument(document);
-        const validation = MarkdownParser.validateQuery(blocks[0].content, 'opensearch-api', blocks[0].metadata);
+        const blocks = DocumentParser.parseDocument(document);
+        const validation = DocumentParser.validateQuery(blocks[0].content, 'opensearch-api', blocks[0].metadata);
         
         assert.strictEqual(validation.valid, true);
     });
@@ -258,7 +258,7 @@ get /sample_logs/_search
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'GET');
@@ -278,7 +278,7 @@ PATCH /sample_logs/_doc/123
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'PATCH');
@@ -298,7 +298,7 @@ GET /sample_logs/_search HTTP/1.1
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].metadata?.method, 'GET');
@@ -314,7 +314,7 @@ SELECT * FROM sample_logs
         `;
         
         const document = createMockDocument(content);
-        const blocks = MarkdownParser.parseDocument(document);
+        const blocks = DocumentParser.parseDocument(document);
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].type, 'sql');
