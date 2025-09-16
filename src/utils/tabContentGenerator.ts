@@ -214,8 +214,9 @@ export class TabContentGenerator {
             });
         }
 
-        // Create table
+        // Create table with row number column
         let table = '<table><thead><tr>';
+        table += '<th class="row-number-header">#</th>'; // Row number header
         displayColumns.forEach(col => {
             const columnType = columnTypeMap.get(col);
             const tooltip = columnType ? ` title="Type: ${columnType}"` : '';
@@ -223,9 +224,10 @@ export class TabContentGenerator {
         });
         table += '</tr></thead><tbody>';
 
-        // Add data rows
-        data.forEach(row => {
+        // Add data rows with row numbers
+        data.forEach((row, index) => {
             table += '<tr>';
+            table += `<td class="row-number">${index + 1}</td>`; // Row number (1-based)
             displayColumns.forEach(col => {
                 let value = this.getNestedValue(row, col);
                 if (value === null || value === undefined) {

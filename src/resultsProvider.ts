@@ -245,9 +245,9 @@ export class ResultsProvider {
             displayColumns = Object.keys(firstRow).slice(0, 8);
         }
 
-        // Create table header
-        let table = '| ' + displayColumns.join(' | ') + ' |\n';
-        table += '| ' + displayColumns.map(() => '---').join(' | ') + ' |\n';
+        // Create table header with row number column
+        let table = '| # | ' + displayColumns.join(' | ') + ' |\n';
+        table += '| --- | ' + displayColumns.map(() => '---').join(' | ') + ' |\n';
 
         // Add data rows (limit to first 20 rows for inline display)
         const rowsToShow = Math.min(data.length, 20);
@@ -264,7 +264,7 @@ export class ResultsProvider {
                 const strValue = String(value);
                 return strValue.length > 50 ? strValue.substring(0, 47) + '...' : strValue;
             });
-            table += '| ' + values.join(' | ') + ' |\n';
+            table += `| ${i + 1} | ` + values.join(' | ') + ' |\n';
         }
 
         if (data.length > 20) {
@@ -463,6 +463,19 @@ export class ResultsProvider {
                 }
                 tr:nth-child(even) {
                     background-color: var(--vscode-list-inactiveSelectionBackground);
+                }
+                .row-number-header {
+                    width: 60px;
+                    text-align: center;
+                    background-color: var(--vscode-list-hoverBackground);
+                    font-weight: bold;
+                }
+                .row-number {
+                    width: 60px;
+                    text-align: center;
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 0.9em;
+                    background-color: var(--vscode-editor-lineHighlightBackground);
                 }
                 .json-container {
                     background-color: var(--vscode-textCodeBlock-background);
