@@ -197,6 +197,10 @@ export class TabContentGenerator {
             return '<p>No results found</p>';
         }
 
+        // Generate unique ID for this table
+        const tableId = `table_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const copyButtonId = `copy-table-${tableId}`;
+
         // Determine columns to display
         let displayColumns: string[];
         if (columns && columns.length > 0) {
@@ -214,8 +218,14 @@ export class TabContentGenerator {
             });
         }
 
+        // Create table container with copy button
+        let tableContainer = `<div class="table-container">`;
+        tableContainer += `<div class="table-copy-header">`;
+        tableContainer += `<button id="${copyButtonId}" class="copy-btn" onclick="copyToClipboard('${tableId}', '${copyButtonId}')">Copy Table</button>`;
+        tableContainer += `</div>`;
+
         // Create table with row number column
-        let table = '<table><thead><tr>';
+        let table = `<table id="${tableId}"><thead><tr>`;
         table += '<th class="row-number-header">#</th>'; // Row number header
         displayColumns.forEach(col => {
             const columnType = columnTypeMap.get(col);
@@ -241,7 +251,8 @@ export class TabContentGenerator {
         });
 
         table += '</tbody></table>';
-        return table;
+        tableContainer += table + '</div>';
+        return tableContainer;
     }
 
     private static generateErrorDetailsContent(result: QueryResult): string {

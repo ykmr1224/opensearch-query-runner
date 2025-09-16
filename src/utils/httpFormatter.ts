@@ -81,22 +81,38 @@ export class HttpFormatter {
 
         // Add connection information if available
         if (result.connectionInfo) {
+            const connectionId = `connection_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const connectionCopyId = `copy-connection-${connectionId}`;
+            
             content += `
                 <div class="debug-item">
                     <h3>🔗 Connection Information</h3>
-                    <div class="json-container">
-                        <pre>Endpoint: ${result.connectionInfo.endpoint}
+                    <div class="copyable-container">
+                        <div class="copy-header">
+                            <button id="${connectionCopyId}" class="copy-btn" onclick="copyToClipboard('${connectionId}', '${connectionCopyId}')">Copy</button>
+                        </div>
+                        <div id="${connectionId}" class="json-container">
+                            <pre>Endpoint: ${result.connectionInfo.endpoint}
 Auth: ${result.connectionInfo.authType}</pre>
+                        </div>
                     </div>
                 </div>
             `;
         }
 
+        const rawRequestId = `raw-request_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const rawRequestCopyId = `copy-raw-request-${rawRequestId}`;
+
         content += `
                 <div class="debug-item">
                     <h3>📤 Raw HTTP Request</h3>
-                    <div class="json-container">
-                        <pre>${rawRequest}</pre>
+                    <div class="copyable-container">
+                        <div class="copy-header">
+                            <button id="${rawRequestCopyId}" class="copy-btn" onclick="copyToClipboard('${rawRequestId}', '${rawRequestCopyId}')">Copy</button>
+                        </div>
+                        <div id="${rawRequestId}" class="json-container">
+                            <pre>${rawRequest}</pre>
+                        </div>
                     </div>
                 </div>
         `;
@@ -113,11 +129,19 @@ Auth: ${result.connectionInfo.authType}</pre>
                 </div>
             `;
         } else {
+            const noRequestId = `no-request_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const noRequestCopyId = `copy-no-request-${noRequestId}`;
+            
             content += `
                 <div class="debug-item">
                     <h3>🔧 Request Details</h3>
-                    <div class="json-container">
-                        <pre>No request details available</pre>
+                    <div class="copyable-container">
+                        <div class="copy-header">
+                            <button id="${noRequestCopyId}" class="copy-btn" onclick="copyToClipboard('${noRequestId}', '${noRequestCopyId}')">Copy</button>
+                        </div>
+                        <div id="${noRequestId}" class="json-container">
+                            <pre>No request details available</pre>
+                        </div>
                     </div>
                 </div>
             `;
@@ -132,12 +156,20 @@ Auth: ${result.connectionInfo.authType}</pre>
      */
     public static generateRawResponseSection(result: QueryResult): string {
         if (!result.responseInfo && !result.rawResponse) {
+            const noResponseId = `no-response_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const noResponseCopyId = `copy-no-response-${noResponseId}`;
+            
             return `
                 <div class="debug-section">
                     <div class="debug-item">
                         <h3>📥 Raw HTTP Response</h3>
-                        <div class="json-container">
-                            <pre>No response information available</pre>
+                        <div class="copyable-container">
+                            <div class="copy-header">
+                                <button id="${noResponseCopyId}" class="copy-btn" onclick="copyToClipboard('${noResponseId}', '${noResponseCopyId}')">Copy</button>
+                            </div>
+                            <div id="${noResponseId}" class="json-container">
+                                <pre>No response information available</pre>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -149,12 +181,19 @@ Auth: ${result.connectionInfo.authType}</pre>
         // Add raw HTTP response if we have response info
         if (result.responseInfo) {
             const rawResponse = this.formatRawResponse(result);
+            const rawResponseId = `raw-response_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const rawResponseCopyId = `copy-raw-response-${rawResponseId}`;
             
             content += `
                 <div class="debug-item">
                     <h3>📥 Raw HTTP Response</h3>
-                    <div class="json-container">
-                        <pre>${rawResponse}</pre>
+                    <div class="copyable-container">
+                        <div class="copy-header">
+                            <button id="${rawResponseCopyId}" class="copy-btn" onclick="copyToClipboard('${rawResponseId}', '${rawResponseCopyId}')">Copy</button>
+                        </div>
+                        <div id="${rawResponseId}" class="json-container">
+                            <pre>${rawResponse}</pre>
+                        </div>
                     </div>
                 </div>
             `;

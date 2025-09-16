@@ -306,6 +306,47 @@ export class WebviewStyles {
                     padding: 15px;
                     overflow-x: auto;
                 }
+                .copy-btn {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    font-size: 0.8em;
+                    transition: background-color 0.2s ease;
+                    margin-left: 8px;
+                    opacity: 0.8;
+                }
+                .copy-btn:hover {
+                    background-color: var(--vscode-button-hoverBackground);
+                    opacity: 1;
+                }
+                .copy-btn.copied {
+                    background-color: var(--vscode-testing-iconPassed);
+                    color: white;
+                }
+                .copyable-container {
+                    position: relative;
+                }
+                .copy-header {
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    z-index: 10;
+                    display: flex;
+                    gap: 4px;
+                }
+                .table-container {
+                    position: relative;
+                    margin-top: 10px;
+                }
+                .table-copy-header {
+                    position: absolute;
+                    top: -35px;
+                    right: 0;
+                    z-index: 10;
+                }
         `;
     }
 
@@ -371,6 +412,120 @@ export class WebviewStyles {
                         yamlContainer.style.display = 'none';
                         button.textContent = 'Convert to YAML';
                     }
+                }
+
+                function copyToClipboard(elementId, buttonId) {
+                    const element = document.getElementById(elementId);
+                    if (!element) {
+                        console.error('Element not found:', elementId);
+                        return;
+                    }
+                    
+                    let textToCopy = '';
+                    
+                    // Handle different element types
+                    if (element.tagName === 'TABLE') {
+                        textToCopy = tableToText(element);
+                    } else if (element.tagName === 'PRE' || element.classList.contains('json-container') || element.classList.contains('yaml-container')) {
+                        textToCopy = element.textContent || element.innerText;
+                    } else {
+                        textToCopy = element.textContent || element.innerText;
+                    }
+                    
+                    // Use the Clipboard API if available, otherwise fallback to execCommand
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            showCopySuccess(buttonId);
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            fallbackCopyTextToClipboard(textToCopy, buttonId);
+                        });
+                    } else {
+                        fallbackCopyTextToClipboard(textToCopy, buttonId);
+                    }
+                }
+                
+                function copyVisibleContent(containerId, buttonId) {
+                    const jsonContainer = document.getElementById('json-' + containerId);
+                    const yamlContainer = document.getElementById('yaml-' + containerId);
+                    
+                    let visibleElement = null;
+                    if (jsonContainer && jsonContainer.style.display !== 'none') {
+                        visibleElement = jsonContainer.querySelector('pre');
+                    } else if (yamlContainer && yamlContainer.style.display !== 'none') {
+                        visibleElement = yamlContainer.querySelector('pre');
+                    } else if (jsonContainer) {
+                        visibleElement = jsonContainer.querySelector('pre');
+                    }
+                    
+                    if (!visibleElement) {
+                        console.error('No visible content found for container:', containerId);
+                        return;
+                    }
+                    
+                    const textToCopy = visibleElement.textContent || visibleElement.innerText;
+                    
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(textToCopy).then(() => {
+                            showCopySuccess(buttonId);
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            fallbackCopyTextToClipboard(textToCopy, buttonId);
+                        });
+                    } else {
+                        fallbackCopyTextToClipboard(textToCopy, buttonId);
+                    }
+                }
+                
+                function fallbackCopyTextToClipboard(text, buttonId) {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            showCopySuccess(buttonId);
+                        } else {
+                            console.error('Fallback copy failed');
+                        }
+                    } catch (err) {
+                        console.error('Fallback copy failed: ', err);
+                    }
+                    
+                    document.body.removeChild(textArea);
+                }
+                
+                function showCopySuccess(buttonId) {
+                    const button = document.getElementById(buttonId);
+                    if (button) {
+                        const originalText = button.textContent;
+                        button.textContent = 'Copied!';
+                        button.classList.add('copied');
+                        
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                            button.classList.remove('copied');
+                        }, 2000);
+                    }
+                }
+                
+                function tableToText(table) {
+                    let text = '';
+                    const rows = table.querySelectorAll('tr');
+                    
+                    rows.forEach((row, rowIndex) => {
+                        const cells = row.querySelectorAll('th, td');
+                        const cellTexts = Array.from(cells).map(cell => cell.textContent.trim());
+                        text += cellTexts.join('\\t') + '\\n';
+                    });
+                    
+                    return text;
                 }
 
                 // Initialize all conversion buttons on page load

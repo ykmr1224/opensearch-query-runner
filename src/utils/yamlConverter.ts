@@ -68,6 +68,11 @@ export class YamlConverter {
         return `
             <div class="content-with-conversion">
                 <div class="conversion-header">
+                    <button id="copy-btn-${containerId}" 
+                            class="copy-btn" 
+                            onclick="copyVisibleContent('${containerId}', 'copy-btn-${containerId}')">
+                        Copy
+                    </button>
                     <button id="convert-btn-${containerId}" 
                             class="${buttonClass}" 
                             onclick="toggleFormat('${containerId}')" 
