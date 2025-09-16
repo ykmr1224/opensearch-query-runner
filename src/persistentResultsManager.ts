@@ -223,7 +223,7 @@ export class PersistentResultsManager {
             return `
                 <div class="history-square ${statusClass} ${isSelected ? 'selected' : ''}" 
                      onclick="selectHistory('${item.id}')" 
-                     title="${item.queryType.toUpperCase()} - ${item.result.success ? 'Success' : 'Failed'} - ${item.timestamp.toLocaleString()}">
+                     title="${item.queryType.toUpperCase()} - ${item.result.success ? 'Success' : 'Failed'} - ${TimestampFormatter.formatLocal(item.timestamp)}">
                     ${queryTypeLetter}
                 </div>
             `;
