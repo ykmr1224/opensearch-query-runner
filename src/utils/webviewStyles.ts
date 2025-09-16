@@ -218,7 +218,7 @@ export class WebviewStyles {
                     text-align: center;
                     color: var(--vscode-descriptionForeground);
                     font-size: 0.9em;
-                    background-color: var(--vscode-editor-lineHighlightBackground);
+                    background-color: inherit;
                 }
                 .json-container {
                     background-color: var(--vscode-textCodeBlock-background);
@@ -298,7 +298,6 @@ export class WebviewStyles {
                     opacity: 0.6;
                 }
                 .format-container {
-                    padding-top: 35px;
                 }
                 .yaml-container {
                     background-color: var(--vscode-textCodeBlock-background);

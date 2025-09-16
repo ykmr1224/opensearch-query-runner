@@ -17,15 +17,11 @@ export class TabContentGenerator {
         const tabs: TabConfig[] = [];
 
         if (!result.success) {
-            // Error case: Error Details, Raw Request, Raw Response
+            // Error case: Enhanced Error Details, Raw Request, Raw Response
             tabs.push({
                 id: 'error',
                 label: 'Error Details',
-                content: `
-                    <div class="json-container">
-                        <pre>${result.error}</pre>
-                    </div>
-                `,
+                content: this.generateErrorDetailsContent(result),
                 active: true
             });
         } else {
@@ -246,6 +242,83 @@ export class TabContentGenerator {
 
         table += '</tbody></table>';
         return table;
+    }
+
+    private static generateErrorDetailsContent(result: QueryResult): string {
+        let content = '<div class="debug-section">';
+        
+        // Main error message
+        content += `
+            <div class="debug-item">
+                <h3>❌ Error Summary</h3>
+                <div class="json-container">
+                    <pre>${result.error || 'No error message available'}</pre>
+                </div>
+            </div>
+        `;
+
+        // Check if we have enhanced error details from our ErrorHandler OR server error details
+        if (result.rawResponse && result.rawResponse.error && result.rawResponse.error.details) {
+            const errorDetails = result.rawResponse.error.details;
+            
+            // Check if this is an escaped JSON string from OpenSearch server
+            if (typeof errorDetails === 'string') {
+                try {
+                    const parsedDetails = JSON.parse(errorDetails);
+                    const detailsContainerId = YamlConverter.generateContentId();
+                    const detailsContent = JSON.stringify(parsedDetails, null, 2);
+                    
+                    content += `
+                        <div class="debug-item">
+                            <h3>🔍 Server Error Details</h3>
+                            ${YamlConverter.createToggleContainer(detailsContent, detailsContainerId, true)}
+                        </div>
+                    `;
+                } catch {
+                    // If parsing fails, show as plain text
+                    content += `
+                        <div class="debug-item">
+                            <h3>🔍 Server Error Details</h3>
+                            <div class="json-container">
+                                <pre>${errorDetails}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (errorDetails && typeof errorDetails === 'object') {
+                // Show full error details as JSON
+                const fullDetailsContainerId = YamlConverter.generateContentId();
+                const fullDetailsContent = JSON.stringify(errorDetails, null, 2);
+                
+                content += `
+                    <div class="debug-item">
+                        <h3>🔧 Full Error Details</h3>
+                        ${YamlConverter.createToggleContainer(fullDetailsContent, fullDetailsContainerId, true)}
+                    </div>
+                `;
+            }
+        } else {
+            // Fallback: if no enhanced error details, show basic error
+            content += `
+                <div class="debug-item">
+                    <h3>ℹ️ Basic Error Information</h3>
+                    <div class="json-container">
+                        <pre>No detailed error information available.
+                        
+This may be due to:
+- Network connectivity issues
+- Server configuration problems
+- Authentication/authorization failures
+- Invalid request format
+
+Check the Raw Request and Raw Response tabs for more information.</pre>
+                    </div>
+                </div>
+            `;
+        }
+        
+        content += '</div>';
+        return content;
     }
 
     private static getNestedValue(obj: any, path: string): any {

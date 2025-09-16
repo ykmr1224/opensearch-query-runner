@@ -44,7 +44,7 @@ export class YamlConverter {
     /**
      * Creates HTML structure for JSON/YAML toggle display
      */
-    public static createToggleContainer(jsonContent: string, containerId: string): string {
+    public static createToggleContainer(jsonContent: string, containerId: string, skipEscaping: boolean = false): string {
         let yamlContent = '';
         let hasValidJson = false;
 
@@ -61,6 +61,10 @@ export class YamlConverter {
         const buttonDisabled = hasValidJson ? '' : 'disabled';
         const buttonClass = hasValidJson ? 'convert-btn' : 'convert-btn disabled';
 
+        // For JSON content that's already safe (like JSON.stringify output), we can skip escaping
+        const jsonDisplay = skipEscaping ? jsonContent : this.escapeHtml(jsonContent);
+        const yamlDisplay = skipEscaping ? yamlContent : this.escapeHtml(yamlContent);
+
         return `
             <div class="content-with-conversion">
                 <div class="conversion-header">
@@ -72,10 +76,10 @@ export class YamlConverter {
                     </button>
                 </div>
                 <div id="json-${containerId}" class="format-container json-container">
-                    <pre>${this.escapeHtml(jsonContent)}</pre>
+                    <pre>${jsonDisplay}</pre>
                 </div>
                 <div id="yaml-${containerId}" class="format-container yaml-container" style="display: none;">
-                    <pre>${this.escapeHtml(yamlContent)}</pre>
+                    <pre>${yamlDisplay}</pre>
                 </div>
             </div>
         `;
