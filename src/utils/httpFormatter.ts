@@ -1,4 +1,5 @@
 import { QueryResult } from '../types';
+import { YamlConverter } from './yamlConverter';
 
 export class HttpFormatter {
     /**
@@ -74,7 +75,7 @@ export class HttpFormatter {
     public static generateRawRequestSection(result: QueryResult): string {
         const rawRequest = this.formatRawRequest(result.requestInfo);
         
-        return `
+        let content = `
             <div class="debug-section">
                 <div class="debug-item">
                     <h3>📤 Raw HTTP Request</h3>
@@ -82,14 +83,32 @@ export class HttpFormatter {
                         <pre>${rawRequest}</pre>
                     </div>
                 </div>
+        `;
+
+        // Add request details with YAML conversion if available
+        if (result.requestInfo) {
+            const requestDetailsJson = JSON.stringify(result.requestInfo, null, 2);
+            const requestDetailsContainerId = YamlConverter.generateContentId();
+            
+            content += `
+                <div class="debug-item">
+                    <h3>🔧 Request Details</h3>
+                    ${YamlConverter.createToggleContainer(requestDetailsJson, requestDetailsContainerId)}
+                </div>
+            `;
+        } else {
+            content += `
                 <div class="debug-item">
                     <h3>🔧 Request Details</h3>
                     <div class="json-container">
-                        <pre>${result.requestInfo ? JSON.stringify(result.requestInfo, null, 2) : 'No request details available'}</pre>
+                        <pre>No request details available</pre>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
+
+        content += '</div>';
+        return content;
     }
 
     /**
@@ -127,24 +146,26 @@ export class HttpFormatter {
 
         // Add response details
         if (result.responseInfo) {
+            const responseDetailsJson = JSON.stringify(result.responseInfo, null, 2);
+            const responseDetailsContainerId = YamlConverter.generateContentId();
+            
             content += `
                 <div class="debug-item">
                     <h3>🔧 Response Details</h3>
-                    <div class="json-container">
-                        <pre>${JSON.stringify(result.responseInfo, null, 2)}</pre>
-                    </div>
+                    ${YamlConverter.createToggleContainer(responseDetailsJson, responseDetailsContainerId)}
                 </div>
             `;
         }
 
         // Add raw response body
         if (result.rawResponse) {
+            const responseBodyJson = JSON.stringify(result.rawResponse, null, 2);
+            const responseBodyContainerId = YamlConverter.generateContentId();
+            
             content += `
                 <div class="debug-item">
                     <h3>📄 Response Body</h3>
-                    <div class="json-container">
-                        <pre>${JSON.stringify(result.rawResponse, null, 2)}</pre>
-                    </div>
+                    ${YamlConverter.createToggleContainer(responseBodyJson, responseBodyContainerId)}
                 </div>
             `;
         }

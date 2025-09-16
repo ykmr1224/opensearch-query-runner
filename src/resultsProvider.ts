@@ -520,6 +520,45 @@ export class ResultsProvider {
                     color: var(--vscode-foreground);
                     font-size: 1.1em;
                 }
+                .content-with-conversion {
+                    position: relative;
+                }
+                .conversion-header {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    z-index: 10;
+                    padding: 8px;
+                }
+                .convert-btn {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85em;
+                    transition: background-color 0.2s ease;
+                }
+                .convert-btn:hover:not(.disabled) {
+                    background-color: var(--vscode-button-hoverBackground);
+                }
+                .convert-btn.disabled {
+                    background-color: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                    cursor: not-allowed;
+                    opacity: 0.6;
+                }
+                .format-container {
+                    padding-top: 35px;
+                }
+                .yaml-container {
+                    background-color: var(--vscode-textCodeBlock-background);
+                    border: 1px solid var(--vscode-panel-border);
+                    border-radius: 4px;
+                    padding: 15px;
+                    overflow-x: auto;
+                }
         `;
     }
 
@@ -540,6 +579,43 @@ export class ResultsProvider {
                     document.getElementById(tabName).classList.add('active');
                     document.querySelector('[onclick="showTab(\\''+tabName+'\\')"]').classList.add('active');
                 }
+
+                function toggleFormat(containerId) {
+                    const jsonContainer = document.getElementById('json-' + containerId);
+                    const yamlContainer = document.getElementById('yaml-' + containerId);
+                    const button = document.getElementById('convert-btn-' + containerId);
+                    
+                    if (!jsonContainer || !yamlContainer || !button) {
+                        console.error('Toggle containers not found for ID:', containerId);
+                        return;
+                    }
+                    
+                    const isShowingJson = jsonContainer.style.display !== 'none';
+                    
+                    if (isShowingJson) {
+                        // Switch to YAML
+                        jsonContainer.style.display = 'none';
+                        yamlContainer.style.display = 'block';
+                        button.textContent = 'Show JSON';
+                    } else {
+                        // Switch to JSON
+                        jsonContainer.style.display = 'block';
+                        yamlContainer.style.display = 'none';
+                        button.textContent = 'Convert to YAML';
+                    }
+                }
+
+                // Initialize all conversion buttons on page load
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Find all conversion buttons and ensure they're properly initialized
+                    const convertButtons = document.querySelectorAll('.convert-btn:not(.disabled)');
+                    convertButtons.forEach(button => {
+                        // Ensure button text is correct on load
+                        if (button.textContent.trim() === '') {
+                            button.textContent = 'Convert to YAML';
+                        }
+                    });
+                });
 
         `;
     }

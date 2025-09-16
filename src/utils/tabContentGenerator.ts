@@ -1,5 +1,6 @@
 import { QueryResult } from '../types';
 import { HttpFormatter } from './httpFormatter';
+import { YamlConverter } from './yamlConverter';
 
 export interface TabConfig {
     id: string;
@@ -104,11 +105,10 @@ export class TabContentGenerator {
             return '<p>No results found</p>';
         }
 
-        return `
-            <div class="json-container">
-                <pre>${JSON.stringify(result.data, null, 2)}</pre>
-            </div>
-        `;
+        const jsonString = JSON.stringify(result.data, null, 2);
+        const containerId = YamlConverter.generateContentId();
+        
+        return YamlConverter.createToggleContainer(jsonString, containerId);
     }
 
     private static generateExplainContent(explainResult: QueryResult): string {
@@ -131,14 +131,17 @@ export class TabContentGenerator {
         // Extract just the execution plan data (without request/response info)
         const executionPlan = this.extractExecutionPlan(explainResult);
         
-        content += `
-            <div class="debug-item">
-                <h3>🔍 Query Execution Plan</h3>
-                <div class="json-container">
-                    <pre>${JSON.stringify(executionPlan, null, 2)}</pre>
+        if (executionPlan) {
+            const planJsonString = JSON.stringify(executionPlan, null, 2);
+            const planContainerId = YamlConverter.generateContentId();
+            
+            content += `
+                <div class="debug-item">
+                    <h3>🔍 Query Execution Plan</h3>
+                    ${YamlConverter.createToggleContainer(planJsonString, planContainerId)}
                 </div>
-            </div>
-        `;
+            `;
+        }
 
         // Add explain request details in a separate section
         if (explainResult.requestInfo) {
@@ -156,12 +159,13 @@ export class TabContentGenerator {
 
         // Add explain response details in a separate section
         if (explainResult.rawResponse) {
+            const responseJsonString = JSON.stringify(explainResult.rawResponse, null, 2);
+            const responseContainerId = YamlConverter.generateContentId();
+            
             content += `
                 <div class="debug-item">
                     <h3>📄 Explain Raw Response</h3>
-                    <div class="json-container">
-                        <pre>${JSON.stringify(explainResult.rawResponse, null, 2)}</pre>
-                    </div>
+                    ${YamlConverter.createToggleContainer(responseJsonString, responseContainerId)}
                 </div>
             `;
         }
