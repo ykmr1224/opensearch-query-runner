@@ -1,4 +1,5 @@
 import { QueryResult, OpenSearchResponse } from '../types';
+import { ConnectionInfoManager } from './connectionInfoManager';
 
 export class ResponseProcessor {
     /**
@@ -47,7 +48,8 @@ export class ResponseProcessor {
             rowCount = Array.isArray(data) ? data.length : undefined;
         }
 
-        return {
+        // Create the base result
+        const result: QueryResult = {
             success: true,
             data,
             executionTime,
@@ -56,6 +58,20 @@ export class ResponseProcessor {
             columns,
             rawResponse: response
         };
+
+        // Preserve additional information that may have been added by ConnectionManager
+        const responseWithInfo = response as any;
+        if (responseWithInfo.requestInfo) {
+            result.requestInfo = responseWithInfo.requestInfo;
+        }
+        if (responseWithInfo.responseInfo) {
+            result.responseInfo = responseWithInfo.responseInfo;
+        }
+        if (responseWithInfo.connectionInfo) {
+            result.connectionInfo = responseWithInfo.connectionInfo;
+        }
+
+        return result;
     }
 
     /**

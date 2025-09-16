@@ -1,4 +1,5 @@
 import { QueryResult } from '../types';
+import { ConnectionInfoManager } from './connectionInfoManager';
 
 export class ErrorHandler {
     /**
@@ -46,11 +47,12 @@ export class ErrorHandler {
     public static createErrorResponse(
         error: any,
         startTime: number,
-        customMessage?: string
+        customMessage?: string,
+        connectionInfo?: QueryResult['connectionInfo']
     ): QueryResult {
         const { requestInfo, responseInfo, rawResponse } = this.extractErrorInfo(error);
         
-        return {
+        const errorResponse: QueryResult = {
             success: false,
             error: customMessage || error.message || 'Unknown error occurred',
             executionTime: Date.now() - startTime,
@@ -59,6 +61,13 @@ export class ErrorHandler {
             responseInfo,
             rawResponse
         };
+
+        // Add connection info if provided
+        if (connectionInfo) {
+            errorResponse.connectionInfo = connectionInfo;
+        }
+
+        return errorResponse;
     }
 
     /**
@@ -84,6 +93,11 @@ export class ErrorHandler {
         // Add response info if available
         if (response.responseInfo) {
             errorResponse.responseInfo = response.responseInfo;
+        }
+        
+        // Add connection info if available
+        if (response.connectionInfo) {
+            errorResponse.connectionInfo = response.connectionInfo;
         }
         
         return errorResponse;

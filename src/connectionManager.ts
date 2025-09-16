@@ -3,6 +3,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { OpenSearchConfig, ConnectionTestResult, OpenSearchResponse, ConnectionOverrides } from './types';
 import { ErrorHandler } from './utils/errorHandler';
 import { RequestInfoBuilder } from './utils/requestInfoBuilder';
+import { ConnectionInfoManager } from './utils/connectionInfoManager';
 
 export class ConnectionManager {
     private axiosInstance: AxiosInstance | null = null;
@@ -86,6 +87,74 @@ export class ConnectionManager {
         return RequestInfoBuilder.buildAuthHeaders(this.config.auth, overrides);
     }
 
+    /**
+     * Helper method to add request and response info to a result
+     */
+    private addRequestResponseInfo(
+        result: any,
+        method: string,
+        endpoint: string,
+        headers: Record<string, string>,
+        body: string,
+        axiosResponse: any
+    ): any {
+        result.requestInfo = {
+            method: method.toUpperCase(),
+            endpoint,
+            headers,
+            body
+        };
+        result.responseInfo = {
+            status: axiosResponse.status,
+            statusText: axiosResponse.statusText,
+            headers: axiosResponse.headers
+        };
+        return result;
+    }
+
+    /**
+     * Helper method to create error response with all necessary info
+     */
+    private createErrorResponse(
+        error: any,
+        method: string,
+        endpoint: string,
+        headers: Record<string, string>,
+        body: string,
+        overrides?: ConnectionOverrides
+    ): any {
+        const errorResponse: any = {
+            error: {
+                type: error.response?.data?.error?.type || error.code || 'RequestError',
+                reason: error.response?.data?.error?.reason || error.message,
+                details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+            }
+        };
+
+        // Add request info
+        errorResponse.requestInfo = {
+            method: method.toUpperCase(),
+            endpoint,
+            headers,
+            body
+        };
+
+        // Add response info if available
+        if (error.response) {
+            errorResponse.responseInfo = {
+                status: error.response.status,
+                statusText: error.response.statusText,
+                headers: error.response.headers
+            };
+            if (error.response.data) {
+                errorResponse.rawResponse = error.response.data;
+            }
+        }
+
+        // Add connection info
+        return ConnectionInfoManager.addConnectionInfo(errorResponse, this.config, overrides);
+    }
+
     public async testConnection(): Promise<ConnectionTestResult> {
         if (!this.axiosInstance) {
             return {
@@ -118,57 +187,18 @@ export class ConnectionManager {
 
         const endpoint = queryType === 'sql' ? '/_plugins/_sql' : '/_plugins/_ppl';
         const payload = { query };
+        const headers = {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders()
+        };
+        const body = JSON.stringify(payload, null, 2);
 
         try {
             const response = await this.axiosInstance.post(endpoint, payload);
-            
-            // Add detailed request and response info
-            const result = response.data;
-            result.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders()
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            result.responseInfo = {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            };
-            
-            return result;
+            const result = this.addRequestResponseInfo(response.data, 'POST', endpoint, headers, body, response);
+            return ConnectionInfoManager.addConnectionInfo(result, this.config);
         } catch (error: any) {
-            const errorResponse: any = {
-                error: {
-                    type: error.response?.data?.error?.type || 'RequestError',
-                    reason: error.response?.data?.error?.reason || error.message,
-                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
-                }
-            };
-            
-            // Add request info even for errors
-            errorResponse.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders()
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            
-            if (error.response) {
-                errorResponse.responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-            }
-            
-            return errorResponse;
+            return this.createErrorResponse(error, 'POST', endpoint, headers, body);
         }
     }
 
@@ -182,18 +212,15 @@ export class ConnectionManager {
         let contentType = 'application/json';
         
         if (body && body.trim()) {
-            // Check if this is a bulk operation
             const isBulkOperation = endpoint.includes('/_bulk');
             
             if (isBulkOperation) {
-                // For bulk operations, ensure proper NDJSON format
-                // Each line should be a valid JSON object, and the body should end with a newline
                 let processedBody = body.trim();
                 
                 // Validate that each non-empty line is valid JSON
                 const lines = processedBody.split('\n');
                 for (const line of lines) {
-                    if (line.trim()) { // Skip empty lines
+                    if (line.trim()) {
                         try {
                             JSON.parse(line.trim());
                         } catch (error) {
@@ -210,7 +237,6 @@ export class ConnectionManager {
                 requestBody = processedBody;
                 contentType = 'application/x-ndjson';
             } else {
-                // For regular JSON operations, parse the body to validate it
                 try {
                     requestBody = JSON.parse(body);
                 } catch (error) {
@@ -233,56 +259,153 @@ export class ConnectionManager {
 
         // For bulk operations, prevent axios from transforming the request data
         if (endpoint.includes('/_bulk')) {
-            requestConfig.transformRequest = [(data: any) => data]; // Keep data as-is
+            requestConfig.transformRequest = [(data: any) => data];
         }
 
         try {
             const response = await this.axiosInstance.request(requestConfig);
-
-            // Add detailed request and response info
-            const result = response.data;
-            result.requestInfo = {
-                method: method.toUpperCase(),
-                endpoint: endpoint,
-                headers: requestHeaders,
-                body: body || ''
-            };
-            result.responseInfo = {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            };
-
-            return result;
+            const result = this.addRequestResponseInfo(response.data, method, endpoint, requestHeaders, body || '', response);
+            return ConnectionInfoManager.addConnectionInfo(result, this.config);
         } catch (error: any) {
-            // Create error response with detailed request/response info
-            const errorResponse: any = {
-                error: {
-                    type: error.response?.data?.error?.type || error.code || 'RequestError',
-                    reason: error.response?.data?.error?.reason || error.message,
-                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
+            return this.createErrorResponse(error, method, endpoint, requestHeaders, body || '');
+        }
+    }
+
+    public async executeQueryWithOverrides(
+        query: string, 
+        queryType: 'sql' | 'ppl', 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        const endpoint = queryType === 'sql' ? '/_plugins/_sql' : '/_plugins/_ppl';
+        const payload = { query };
+        const headers = {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(overrides)
+        };
+        const body = JSON.stringify(payload, null, 2);
+
+        try {
+            const response = await axiosInstance.post(endpoint, payload);
+            const result = this.addRequestResponseInfo(response.data, 'POST', endpoint, headers, body, response);
+            return ConnectionInfoManager.addConnectionInfo(result, this.config, overrides);
+        } catch (error: any) {
+            return this.createErrorResponse(error, 'POST', endpoint, headers, body, overrides);
+        }
+    }
+
+    public async executeExplainQueryWithOverrides(
+        query: string, 
+        queryType: 'sql' | 'ppl', 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        const endpoint = queryType === 'sql' ? '/_plugins/_sql/_explain' : '/_plugins/_ppl/_explain';
+        const payload = { query };
+        const headers = {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(overrides)
+        };
+        const body = JSON.stringify(payload, null, 2);
+
+        try {
+            const response = await axiosInstance.post(endpoint, payload);
+            const result = this.addRequestResponseInfo(response.data, 'POST', endpoint, headers, body, response);
+            return ConnectionInfoManager.addConnectionInfo(result, this.config, overrides);
+        } catch (error: any) {
+            return this.createErrorResponse(error, 'POST', endpoint, headers, body, overrides);
+        }
+    }
+
+    public async executeApiOperationWithOverrides(
+        method: string, 
+        endpoint: string, 
+        body?: string, 
+        overrides?: ConnectionOverrides
+    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
+        const axiosInstance = overrides ? 
+            this.createAxiosInstanceWithOverrides(overrides) : 
+            this.axiosInstance;
+
+        if (!axiosInstance) {
+            throw new Error('No connection configured');
+        }
+
+        // Determine if this is a bulk operation and prepare request body
+        let requestBody: any = undefined;
+        let contentType = 'application/json';
+        
+        if (body && body.trim()) {
+            const isBulkOperation = endpoint.includes('/_bulk');
+            
+            if (isBulkOperation) {
+                let processedBody = body.trim();
+                
+                // Validate that each non-empty line is valid JSON
+                const lines = processedBody.split('\n');
+                for (const line of lines) {
+                    if (line.trim()) {
+                        try {
+                            JSON.parse(line.trim());
+                        } catch (error) {
+                            throw new Error(`Invalid JSON in bulk request line: ${line.trim()}`);
+                        }
+                    }
                 }
-            };
-
-            // Always add request info, even for errors
-            errorResponse.requestInfo = {
-                method: method.toUpperCase(),
-                endpoint: endpoint,
-                headers: requestHeaders,
-                body: body || ''
-            };
-
-            // Add response info if available
-            if (error.response) {
-                errorResponse.responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-                errorResponse.rawResponse = error.response.data;
+                
+                // Ensure the body ends with a newline (required for bulk API)
+                if (!processedBody.endsWith('\n')) {
+                    processedBody += '\n';
+                }
+                
+                requestBody = processedBody;
+                contentType = 'application/x-ndjson';
+            } else {
+                try {
+                    requestBody = JSON.parse(body);
+                } catch (error) {
+                    throw new Error('Invalid JSON in request body');
+                }
             }
+        }
 
-            return errorResponse;
+        const requestHeaders = {
+            'Content-Type': contentType,
+            ...this.getAuthHeaders(overrides)
+        };
+
+        const requestConfig: any = {
+            method: method.toLowerCase(),
+            url: endpoint,
+            data: requestBody,
+            headers: requestHeaders
+        };
+
+        // For bulk operations, prevent axios from transforming the request data
+        if (endpoint.includes('/_bulk')) {
+            requestConfig.transformRequest = [(data: any) => data];
+        }
+
+        try {
+            const response = await axiosInstance.request(requestConfig);
+            const result = this.addRequestResponseInfo(response.data, method, endpoint, requestHeaders, body || '', response);
+            return ConnectionInfoManager.addConnectionInfo(result, this.config, overrides);
+        } catch (error: any) {
+            return this.createErrorResponse(error, method, endpoint, requestHeaders, body || '', overrides);
         }
     }
 
@@ -304,9 +427,6 @@ export class ConnectionManager {
         }
     }
 
-    /**
-     * Create a temporary axios instance with connection overrides
-     */
     private createAxiosInstanceWithOverrides(overrides: ConnectionOverrides): AxiosInstance {
         if (!this.config) {
             throw new Error('No base configuration available');
@@ -355,279 +475,6 @@ export class ConnectionManager {
         return axios.create(axiosConfig);
     }
 
-
-    /**
-     * Execute query with connection overrides
-     */
-    public async executeQueryWithOverrides(
-        query: string, 
-        queryType: 'sql' | 'ppl', 
-        overrides?: ConnectionOverrides
-    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
-        const axiosInstance = overrides ? 
-            this.createAxiosInstanceWithOverrides(overrides) : 
-            this.axiosInstance;
-
-        if (!axiosInstance) {
-            throw new Error('No connection configured');
-        }
-
-        const endpoint = queryType === 'sql' ? '/_plugins/_sql' : '/_plugins/_ppl';
-        const payload = { query };
-
-        try {
-            const response = await axiosInstance.post(endpoint, payload);
-            
-            // Add detailed request and response info
-            const result = response.data;
-            result.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders(overrides)
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            result.responseInfo = {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            };
-            
-            return result;
-        } catch (error: any) {
-            const errorResponse: any = {
-                error: {
-                    type: error.response?.data?.error?.type || 'RequestError',
-                    reason: error.response?.data?.error?.reason || error.message,
-                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
-                }
-            };
-            
-            // Add request info even for errors
-            errorResponse.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders(overrides)
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            
-            if (error.response) {
-                errorResponse.responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-            }
-            
-            return errorResponse;
-        }
-    }
-
-    /**
-     * Execute explain query with connection overrides
-     */
-    public async executeExplainQueryWithOverrides(
-        query: string, 
-        queryType: 'sql' | 'ppl', 
-        overrides?: ConnectionOverrides
-    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
-        const axiosInstance = overrides ? 
-            this.createAxiosInstanceWithOverrides(overrides) : 
-            this.axiosInstance;
-
-        if (!axiosInstance) {
-            throw new Error('No connection configured');
-        }
-
-        const endpoint = queryType === 'sql' ? '/_plugins/_sql/_explain' : '/_plugins/_ppl/_explain';
-        const payload = { query };
-
-        try {
-            const response = await axiosInstance.post(endpoint, payload);
-            
-            // Add detailed request and response info
-            const result = response.data;
-            result.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders(overrides)
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            result.responseInfo = {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            };
-            
-            return result;
-        } catch (error: any) {
-            const errorResponse: any = {
-                error: {
-                    type: error.response?.data?.error?.type || 'RequestError',
-                    reason: error.response?.data?.error?.reason || error.message,
-                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
-                }
-            };
-            
-            // Add request info even for errors
-            errorResponse.requestInfo = {
-                method: 'POST',
-                endpoint: endpoint,
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...this.getAuthHeaders(overrides)
-                },
-                body: JSON.stringify(payload, null, 2)
-            };
-            
-            if (error.response) {
-                errorResponse.responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-            }
-            
-            return errorResponse;
-        }
-    }
-
-    /**
-     * Execute API operation with connection overrides
-     */
-    public async executeApiOperationWithOverrides(
-        method: string, 
-        endpoint: string, 
-        body?: string, 
-        overrides?: ConnectionOverrides
-    ): Promise<OpenSearchResponse & { requestInfo?: any, responseInfo?: any }> {
-        const axiosInstance = overrides ? 
-            this.createAxiosInstanceWithOverrides(overrides) : 
-            this.axiosInstance;
-
-        if (!axiosInstance) {
-            throw new Error('No connection configured');
-        }
-
-        // Determine if this is a bulk operation and prepare request body
-        let requestBody: any = undefined;
-        let contentType = 'application/json';
-        
-        if (body && body.trim()) {
-            // Check if this is a bulk operation
-            const isBulkOperation = endpoint.includes('/_bulk');
-            
-            if (isBulkOperation) {
-                // For bulk operations, ensure proper NDJSON format
-                let processedBody = body.trim();
-                
-                // Validate that each non-empty line is valid JSON
-                const lines = processedBody.split('\n');
-                for (const line of lines) {
-                    if (line.trim()) { // Skip empty lines
-                        try {
-                            JSON.parse(line.trim());
-                        } catch (error) {
-                            throw new Error(`Invalid JSON in bulk request line: ${line.trim()}`);
-                        }
-                    }
-                }
-                
-                // Ensure the body ends with a newline (required for bulk API)
-                if (!processedBody.endsWith('\n')) {
-                    processedBody += '\n';
-                }
-                
-                requestBody = processedBody;
-                contentType = 'application/x-ndjson';
-            } else {
-                // For regular JSON operations, parse the body to validate it
-                try {
-                    requestBody = JSON.parse(body);
-                } catch (error) {
-                    throw new Error('Invalid JSON in request body');
-                }
-            }
-        }
-
-        const requestHeaders = {
-            'Content-Type': contentType,
-            ...this.getAuthHeaders(overrides)
-        };
-
-        const requestConfig: any = {
-            method: method.toLowerCase(),
-            url: endpoint,
-            data: requestBody,
-            headers: requestHeaders
-        };
-
-        // For bulk operations, prevent axios from transforming the request data
-        if (endpoint.includes('/_bulk')) {
-            requestConfig.transformRequest = [(data: any) => data]; // Keep data as-is
-        }
-
-        try {
-            const response = await axiosInstance.request(requestConfig);
-
-            // Add detailed request and response info
-            const result = response.data;
-            result.requestInfo = {
-                method: method.toUpperCase(),
-                endpoint: endpoint,
-                headers: requestHeaders,
-                body: body || ''
-            };
-            result.responseInfo = {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            };
-
-            return result;
-        } catch (error: any) {
-            // Create error response with detailed request/response info
-            const errorResponse: any = {
-                error: {
-                    type: error.response?.data?.error?.type || error.code || 'RequestError',
-                    reason: error.response?.data?.error?.reason || error.message,
-                    details: error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message
-                }
-            };
-
-            // Always add request info, even for errors
-            errorResponse.requestInfo = {
-                method: method.toUpperCase(),
-                endpoint: endpoint,
-                headers: requestHeaders,
-                body: body || ''
-            };
-
-            // Add response info if available
-            if (error.response) {
-                errorResponse.responseInfo = {
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    headers: error.response.headers
-                };
-                errorResponse.rawResponse = error.response.data;
-            }
-
-            return errorResponse;
-        }
-    }
-
-    /**
-     * Test connection with overrides
-     */
     public async testConnectionWithOverrides(overrides: ConnectionOverrides): Promise<ConnectionTestResult> {
         try {
             const axiosInstance = this.createAxiosInstanceWithOverrides(overrides);

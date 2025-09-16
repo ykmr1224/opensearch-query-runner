@@ -66,6 +66,10 @@ export interface QueryResult {
         statusText?: string;
         headers?: Record<string, string>;
     };
+    connectionInfo?: {
+        endpoint: string;
+        authType: string;
+    };
 }
 
 export interface QueryHistoryItem {

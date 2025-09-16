@@ -77,6 +77,22 @@ export class HttpFormatter {
         
         let content = `
             <div class="debug-section">
+        `;
+
+        // Add connection information if available
+        if (result.connectionInfo) {
+            content += `
+                <div class="debug-item">
+                    <h3>🔗 Connection Information</h3>
+                    <div class="json-container">
+                        <pre>Endpoint: ${result.connectionInfo.endpoint}
+Auth: ${result.connectionInfo.authType}</pre>
+                    </div>
+                </div>
+            `;
+        }
+
+        content += `
                 <div class="debug-item">
                     <h3>📤 Raw HTTP Request</h3>
                     <div class="json-container">
