@@ -184,11 +184,18 @@ export class PersistentResultsManager {
             ${historySquares}
 
             <div class="query-info">
-                <div class="query-type-label">${queryType.toUpperCase()}</div>
+                <div class="query-type-container">
+                    ${this.currentHistoryId ? `<button class="delete-btn" onclick="deleteCurrentHistory()" title="Delete this history item">
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                    </button>` : ''}
+                    <div class="query-type-label">${queryType.toUpperCase()}</div>
+                </div>
                 <div class="query-content">
                     <pre>${query}</pre>
                 </div>
-                ${this.currentHistoryId ? `<button class="btn delete-btn" onclick="deleteCurrentHistory()" title="Delete this history item">Delete</button>` : ''}
             </div>
 
             ${metadata}
@@ -326,14 +333,6 @@ export class PersistentResultsManager {
                 .history-btn .icon {
                     font-size: 1em;
                 }
-                .delete-btn {
-                    background-color: var(--vscode-button-secondaryBackground);
-                    color: var(--vscode-button-secondaryForeground);
-                    margin-top: 10px;
-                }
-                .delete-btn:hover {
-                    background-color: var(--vscode-button-secondaryHoverBackground);
-                }
                 .history-section {
                     display: flex;
                     align-items: center;
@@ -388,17 +387,45 @@ export class PersistentResultsManager {
                     margin-bottom: 20px;
                     position: relative;
                 }
-                .query-type-label {
+                .query-type-container {
                     position: absolute;
                     top: 0;
                     left: 0;
+                    display: flex;
+                    align-items: stretch;
+                    z-index: 1;
+                }
+                .query-type-label {
                     background-color: var(--vscode-button-background);
                     color: var(--vscode-button-foreground);
                     padding: 4px 8px;
                     font-size: 0.8em;
                     font-weight: bold;
                     text-transform: uppercase;
-                    z-index: 1;
+                    border-top-right-radius: 3px;
+                    border-bottom-right-radius: 3px;
+                    border-left: 1px solid rgba(255, 255, 255, 0.2);
+                }
+                .delete-btn {
+                    background-color: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                    border: none;
+                    padding: 4px 6px;
+                    font-size: 0.9em;
+                    font-weight: bold;
+                    cursor: pointer;
+                    border-top-left-radius: 3px;
+                    border-bottom-left-radius: 3px;
+                    transition: background-color 0.2s ease;
+                    line-height: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 20px;
+                }
+                .delete-btn:hover {
+                    background-color: var(--vscode-errorForeground);
+                    color: white;
                 }
                 .query-content {
                     margin-top: 20px;
