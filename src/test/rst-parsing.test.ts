@@ -89,8 +89,12 @@ SQL Test
         
         assert.strictEqual(blocks.length, 1);
         assert.strictEqual(blocks[0].type, 'opensearch-api');
-        assert.ok(blocks[0].content.includes('GET /test-index/_search'));
+        // HTTP request line should be filtered out from content
+        assert.ok(!blocks[0].content.includes('GET /test-index/_search'));
         assert.ok(blocks[0].content.includes('"match_all"'));
+        // But should be in metadata
+        assert.strictEqual(blocks[0].metadata?.method, 'GET');
+        assert.strictEqual(blocks[0].metadata?.endpoint, '/test-index/_search');
     });
 
     test('Parse multiple RST blocks', () => {
@@ -129,7 +133,11 @@ API Block
         
         assert.ok(blocks[0].content.includes('SELECT COUNT(*)'));
         assert.ok(blocks[1].content.includes('source=logs'));
-        assert.ok(blocks[2].content.includes('GET /_cluster/health'));
+        // HTTP request line should be filtered out from opensearch-api content
+        assert.ok(!blocks[2].content.includes('GET /_cluster/health'));
+        // But should be in metadata
+        assert.strictEqual(blocks[2].metadata?.method, 'GET');
+        assert.strictEqual(blocks[2].metadata?.endpoint, '/_cluster/health');
     });
 
     test('Parse RST blocks with comments', () => {
@@ -138,13 +146,13 @@ API Block
 
 .. code-block:: sql
 
-   # Description: Count all records
-   # Timeout: 30s
+   -- Description: Count all records
+   -- Timeout: 30s
    SELECT COUNT(*) FROM test_table
 
 .. code-block:: ppl
 
-   # Description: Analyze log levels
+   -- Description: Analyze log levels
    source=logs | stats count() by level
 `;
 
@@ -153,10 +161,19 @@ API Block
         
         assert.strictEqual(blocks.length, 2);
         
-        // Check that comments are preserved
-        assert.ok(blocks[0].content.includes('# Description: Count all records'));
-        assert.ok(blocks[0].content.includes('# Timeout: 30s'));
-        assert.ok(blocks[1].content.includes('# Description: Analyze log levels'));
+        // Check that metadata comments are filtered out from content but metadata is parsed
+        assert.ok(!blocks[0].content.includes('-- Description: Count all records'));
+        assert.ok(!blocks[0].content.includes('-- Timeout: 30s'));
+        assert.ok(!blocks[1].content.includes('-- Description: Analyze log levels'));
+        
+        // But the actual query content should be preserved
+        assert.ok(blocks[0].content.includes('SELECT COUNT(*) FROM test_table'));
+        assert.ok(blocks[1].content.includes('source=logs | stats count() by level'));
+        
+        // And metadata should be parsed correctly
+        assert.strictEqual(blocks[0].metadata?.description, 'Count all records');
+        assert.strictEqual(blocks[0].metadata?.timeout, 30000); // 30s in milliseconds
+        assert.strictEqual(blocks[1].metadata?.description, 'Analyze log levels');
     });
 
     test('Parse RST configuration blocks', () => {
@@ -171,20 +188,23 @@ API Block
 
 .. code-block:: sql
 
-   # Description: Query with config
+   -- Description: Query with config
    SELECT * FROM logs LIMIT 10
 `;
 
         const document = createMockDocument(content);
         const blocks = DocumentParser.parseDocument(document);
         
-        // Should find both config and sql blocks
-        assert.strictEqual(blocks.length, 2);
-        assert.strictEqual(blocks[0].type, 'config');
-        assert.strictEqual(blocks[1].type, 'sql');
+        // Should find only the SQL block (config blocks are handled separately)
+        assert.strictEqual(blocks.length, 1);
+        assert.strictEqual(blocks[0].type, 'sql');
         
-        assert.ok(blocks[0].content.includes('@endpoint'));
-        assert.ok(blocks[1].content.includes('SELECT * FROM logs'));
+        assert.ok(blocks[0].content.includes('SELECT * FROM logs'));
+        
+        // Test configuration blocks separately
+        const configBlocks = DocumentParser.parseConfigurationBlocks(document);
+        assert.strictEqual(configBlocks.length, 1);
+        assert.ok(configBlocks[0].config.endpoint === 'http://localhost:9200');
     });
 
     test('Ignore non-query RST blocks', () => {
@@ -231,14 +251,10 @@ API Block
         const document = createMockDocument(content);
         const blocks = DocumentParser.parseDocument(document);
         
-        // Should find both blocks, even if one is empty
-        assert.strictEqual(blocks.length, 2);
-        assert.strictEqual(blocks[0].type, 'sql');
-        assert.strictEqual(blocks[1].type, 'ppl');
-        
-        // Empty block should have empty or minimal content
-        assert.ok(blocks[0].content.trim().length === 0);
-        assert.ok(blocks[1].content.includes('source=logs'));
+        // Should find only the non-empty block now that we filter properly
+        assert.strictEqual(blocks.length, 1);
+        assert.strictEqual(blocks[0].type, 'ppl');
+        assert.ok(blocks[0].content.includes('source=logs'));
     });
 
     test('Parse RST blocks with proper indentation', () => {

@@ -8,8 +8,8 @@ SQL Query Example
 
 .. code-block:: sql
 
-   # Description: Get recent log entries
-   # Timeout: 30s
+   -- Description: Get recent log entries
+   -- Timeout: 30s
    SELECT timestamp, level, message 
    FROM logs 
    WHERE timestamp > '2023-01-01' 
@@ -21,8 +21,8 @@ PPL Query Example
 
 .. code-block:: ppl
 
-   # Description: Analyze log levels
-   # Timeout: 15s
+   -- Description: Analyze log levels
+   -- Timeout: 15s
    source=logs 
    | where timestamp > '2023-01-01' 
    | stats count() by level 
@@ -37,7 +37,7 @@ Create Index
 .. code-block:: opensearch-api
 
    PUT /logs-2024
-   # Description: Create a new index with mappings
+   -- Description: Create a new index with mappings
    {
      "mappings": {
        "properties": {
@@ -54,7 +54,7 @@ Index Document
 .. code-block:: opensearch-api
 
    POST /logs-2024/_doc
-   # Description: Index a new log entry
+   -- Description: Index a new log entry
    {
      "timestamp": "2024-01-15T10:00:00Z",
      "level": "INFO",
@@ -67,7 +67,7 @@ Search Documents
 .. code-block:: opensearch-api
 
    GET /logs-2024/_search
-   # Description: Search for error logs
+   -- Description: Search for error logs
    {
      "query": {
        "match": {
@@ -89,7 +89,7 @@ You can configure connection settings using RST code blocks:
 
 .. code-block:: sql
 
-   # Description: Query using the configuration above
+   -- Description: Query using the configuration above
    SELECT COUNT(*) FROM logs
 
 Multi-Cluster Configuration
@@ -105,7 +105,7 @@ Development Environment
 
 .. code-block:: sql
 
-   # Description: Query development cluster
+   -- Description: Query development cluster
    SELECT COUNT(*) FROM dev_logs
 
 Production Environment
@@ -121,7 +121,7 @@ Production Environment
 
 .. code-block:: sql
 
-   # Description: Query production cluster with extended timeout
+   -- Description: Query production cluster with extended timeout
    SELECT COUNT(*) FROM prod_logs WHERE timestamp > NOW() - INTERVAL 1 DAY
 
 Bulk Operations
@@ -130,7 +130,7 @@ Bulk Operations
 .. code-block:: opensearch-api
 
    POST /_bulk
-   # Description: Bulk index multiple documents
+   -- Description: Bulk index multiple documents
    { "index": { "_index": "logs-2024" } }
    { "timestamp": "2024-01-15T10:00:00Z", "level": "INFO", "message": "Log 1" }
    { "index": { "_index": "logs-2024" } }
@@ -154,12 +154,12 @@ Query Types
 Query Metadata
 ---------------
 
-You can add metadata to your queries using RST comments:
+You can add metadata to your queries using comments:
 
-- ``# Connection: my-cluster`` - Specify connection (future feature)
-- ``# Timeout: 30s`` - Set query timeout
-- ``# Description: What this query does`` - Add description
-- ``# Method: POST`` - HTTP method for API operations
-- ``# Endpoint: /index/_doc`` - API endpoint for operations
+- ``-- Connection: my-cluster`` - Specify connection (future feature)
+- ``-- Timeout: 30s`` - Set query timeout
+- ``-- Description: What this query does`` - Add description
+- ``-- Method: POST`` - HTTP method for API operations
+- ``-- Endpoint: /index/_doc`` - API endpoint for operations
 
 Happy querying! 🚀
