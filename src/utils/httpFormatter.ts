@@ -12,10 +12,8 @@ export class HttpFormatter {
 
         const { method, endpoint, headers, body } = requestInfo;
         
-        // Build the raw HTTP request
         let rawRequest = `${method || 'POST'} ${endpoint || '/'} HTTP/1.1\n`;
-        
-        // Add headers
+
         if (headers) {
             Object.entries(headers).forEach(([key, value]) => {
                 rawRequest += `${key}: ${value}\n`;
@@ -25,7 +23,6 @@ export class HttpFormatter {
         // Empty line between headers and body
         rawRequest += '\n';
         
-        // Add body if present
         if (body) {
             rawRequest += body;
         }
@@ -48,10 +45,8 @@ export class HttpFormatter {
 
         const { status, statusText, headers } = result.responseInfo;
         
-        // Build the raw HTTP response
         let rawResponse = `HTTP/1.1 ${status || 200} ${statusText || 'OK'}\n`;
-        
-        // Add headers
+
         if (headers) {
             Object.entries(headers).forEach(([key, value]) => {
                 rawResponse += `${key}: ${value}\n`;
@@ -61,7 +56,6 @@ export class HttpFormatter {
         // Empty line between headers and body
         rawResponse += '\n';
         
-        // Add response body if present
         if (result.rawResponse) {
             rawResponse += JSON.stringify(result.rawResponse, null, 2);
         }

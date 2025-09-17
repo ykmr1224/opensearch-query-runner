@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { QueryBlock, QueryMetadata, ConfigurationBlock } from '../types';
+import { QueryBlock, QueryMetadata, ConfigurationBlock, QueryType } from '../types';
 
 /**
  * Base interface for document parsers
@@ -32,7 +32,7 @@ export class BaseParser {
      */
     protected static extractQueryContent(
         content: string, 
-        queryType: 'sql' | 'ppl' | 'opensearch-api', 
+        queryType: QueryType,
     ): string {
         const lines = content.split('\n');
         const queryLines: string[] = [];
@@ -84,7 +84,7 @@ export class BaseParser {
      */
     protected static parseMetadata(
         content: string, 
-        queryType?: 'sql' | 'ppl' | 'opensearch-api'
+        queryType?: QueryType
     ): QueryMetadata {
         const metadata: QueryMetadata = {};
         const lines = content.split('\n');

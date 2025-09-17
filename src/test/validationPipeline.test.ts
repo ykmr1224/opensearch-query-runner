@@ -1,13 +1,13 @@
 import * as assert from 'assert';
 import { ValidationPipeline } from '../utils/validationPipeline';
-import { QueryBlock } from '../types';
+import { QueryType } from '../types';
 
 suite('ValidationPipeline Tests', () => {
     suite('validateQuery', () => {
         test('should validate SQL query successfully', () => {
             const context = ValidationPipeline.createContext(
                 'SELECT * FROM logs WHERE level = "ERROR"',
-                'sql'
+                QueryType.SQL
             );
 
             const result = ValidationPipeline.validateQuery(context);
@@ -18,7 +18,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate PPL query successfully', () => {
             const context = ValidationPipeline.createContext(
                 'source=logs | where level="ERROR" | stats count() by host',
-                'ppl'
+                QueryType.PPL
             );
 
             const result = ValidationPipeline.validateQuery(context);
@@ -29,7 +29,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate OpenSearch API query successfully', () => {
             const context = ValidationPipeline.createContext(
                 '{"query": {"match_all": {}}}',
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 { method: 'POST', endpoint: '/_search' }
             );
 
@@ -39,7 +39,7 @@ suite('ValidationPipeline Tests', () => {
         });
 
         test('should reject empty query', () => {
-            const context = ValidationPipeline.createContext('', 'sql');
+            const context = ValidationPipeline.createContext('', QueryType.SQL);
 
             const result = ValidationPipeline.validateQuery(context);
 
@@ -49,7 +49,7 @@ suite('ValidationPipeline Tests', () => {
         });
 
         test('should reject query with only whitespace', () => {
-            const context = ValidationPipeline.createContext('   \n\t  ', 'sql');
+            const context = ValidationPipeline.createContext('   \n\t  ', QueryType.SQL);
 
             const result = ValidationPipeline.validateQuery(context);
 
@@ -61,7 +61,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid SQL query', () => {
             const context = ValidationPipeline.createContext(
                 'INVALID SQL SYNTAX HERE',
-                'sql'
+                QueryType.SQL
             );
 
             const result = ValidationPipeline.validateQuery(context);
@@ -75,7 +75,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid PPL query', () => {
             const context = ValidationPipeline.createContext(
                 'invalid ppl syntax | bad command',
-                'ppl'
+                QueryType.PPL
             );
 
             const result = ValidationPipeline.validateQuery(context);
@@ -89,7 +89,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject OpenSearch API query without metadata', () => {
             const context = ValidationPipeline.createContext(
                 '{"query": {"match_all": {}}}',
-                'opensearch-api'
+                QueryType.OPENSEARCH_API
             );
 
             const result = ValidationPipeline.validateQuery(context);
@@ -103,7 +103,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject OpenSearch API query with invalid JSON', () => {
             const context = ValidationPipeline.createContext(
                 '{"query": {"match_all": {}}', // missing closing brace
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 { method: 'POST', endpoint: '/_search' }
             );
 
@@ -117,7 +117,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate connection overrides', () => {
             const context = ValidationPipeline.createContext(
                 'SELECT * FROM logs',
-                'sql',
+                QueryType.SQL,
                 undefined,
                 {
                     endpoint: 'https://custom-cluster:9200',
@@ -134,7 +134,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid connection overrides', () => {
             const context = ValidationPipeline.createContext(
                 'SELECT * FROM logs',
-                'sql',
+                QueryType.SQL,
                 undefined,
                 {
                     endpoint: 'invalid-url',
@@ -154,7 +154,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate SQL explain query successfully', () => {
             const context = ValidationPipeline.createContext(
                 'SELECT * FROM logs WHERE level = "ERROR"',
-                'sql'
+                QueryType.SQL
             );
 
             const result = ValidationPipeline.validateExplainQuery(context);
@@ -165,7 +165,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate PPL explain query successfully', () => {
             const context = ValidationPipeline.createContext(
                 'source=logs | where level="ERROR"',
-                'ppl'
+                QueryType.PPL
             );
 
             const result = ValidationPipeline.validateExplainQuery(context);
@@ -176,7 +176,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject explain for OpenSearch API queries', () => {
             const context = ValidationPipeline.createContext(
                 '{"query": {"match_all": {}}}',
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 { method: 'POST', endpoint: '/_search' }
             );
 
@@ -188,7 +188,7 @@ suite('ValidationPipeline Tests', () => {
         });
 
         test('should reject empty explain query', () => {
-            const context = ValidationPipeline.createContext('', 'sql');
+            const context = ValidationPipeline.createContext('', QueryType.SQL);
 
             const result = ValidationPipeline.validateExplainQuery(context);
 
@@ -202,7 +202,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate valid query block', () => {
             const result = ValidationPipeline.validateQueryBlock(
                 'SELECT * FROM logs',
-                'sql',
+                QueryType.SQL,
                 { timeout: 30000, description: 'Test query' }
             );
 
@@ -212,7 +212,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate query block with connection overrides', () => {
             const result = ValidationPipeline.validateQueryBlock(
                 'source=logs | stats count()',
-                'ppl',
+                QueryType.PPL,
                 undefined,
                 {
                     endpoint: 'https://test-cluster:9200',
@@ -224,7 +224,7 @@ suite('ValidationPipeline Tests', () => {
         });
 
         test('should reject query block with empty content', () => {
-            const result = ValidationPipeline.validateQueryBlock('', 'sql');
+            const result = ValidationPipeline.validateQueryBlock('', QueryType.SQL);
 
             assert.ok(result);
             assert.strictEqual(result.success, false);
@@ -234,7 +234,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject query block with invalid API metadata', () => {
             const result = ValidationPipeline.validateQueryBlock(
                 '{"query": {"match_all": {}}}',
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 { method: 'POST' } // missing endpoint
             );
 
@@ -249,7 +249,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate SQL query content', () => {
             const result = ValidationPipeline.validateQueryContent(
                 'SELECT id, name FROM users WHERE active = true',
-                'sql'
+                QueryType.SQL
             );
 
             assert.strictEqual(result.valid, true);
@@ -259,7 +259,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate PPL query content', () => {
             const result = ValidationPipeline.validateQueryContent(
                 'source=logs | where level="ERROR" | head 10',
-                'ppl'
+                QueryType.PPL
             );
 
             assert.strictEqual(result.valid, true);
@@ -269,7 +269,7 @@ suite('ValidationPipeline Tests', () => {
         test('should validate OpenSearch API query content', () => {
             const result = ValidationPipeline.validateQueryContent(
                 '{"query": {"bool": {"must": [{"term": {"status": "active"}}]}}}',
-                'opensearch-api'
+                QueryType.OPENSEARCH_API
             );
 
             assert.strictEqual(result.valid, true);
@@ -279,7 +279,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid SQL syntax', () => {
             const result = ValidationPipeline.validateQueryContent(
                 'INVALID FROM WHERE',
-                'sql'
+                QueryType.SQL
             );
 
             assert.strictEqual(result.valid, false);
@@ -289,7 +289,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid PPL syntax', () => {
             const result = ValidationPipeline.validateQueryContent(
                 'invalid | bad syntax here',
-                'ppl'
+                QueryType.PPL
             );
 
             assert.strictEqual(result.valid, false);
@@ -299,7 +299,7 @@ suite('ValidationPipeline Tests', () => {
         test('should reject invalid JSON for API queries', () => {
             const result = ValidationPipeline.validateQueryContent(
                 '{"query": {"match_all": {}}', // missing closing brace
-                'opensearch-api'
+                QueryType.OPENSEARCH_API
             );
 
             // For opensearch-api, the validateQueryContent method doesn't validate JSON
@@ -308,14 +308,14 @@ suite('ValidationPipeline Tests', () => {
         });
 
         test('should handle empty query content', () => {
-            const result = ValidationPipeline.validateQueryContent('', 'sql');
+            const result = ValidationPipeline.validateQueryContent('', QueryType.SQL);
 
             assert.strictEqual(result.valid, false);
             assert.ok(result.error?.includes('Query cannot be empty'));
         });
 
         test('should handle whitespace-only query content', () => {
-            const result = ValidationPipeline.validateQueryContent('   \n\t  ', 'ppl');
+            const result = ValidationPipeline.validateQueryContent('   \n\t  ', QueryType.PPL);
 
             assert.strictEqual(result.valid, false);
             assert.ok(result.error?.includes('Query cannot be empty'));
@@ -326,7 +326,7 @@ suite('ValidationPipeline Tests', () => {
         test('should create basic validation context', () => {
             const context = ValidationPipeline.createContext(
                 'SELECT * FROM logs',
-                'sql'
+                QueryType.SQL
             );
 
             assert.strictEqual(context.query, 'SELECT * FROM logs');
@@ -340,7 +340,7 @@ suite('ValidationPipeline Tests', () => {
             const metadata = { method: 'POST', endpoint: '/_search' };
             const context = ValidationPipeline.createContext(
                 '{"query": {"match_all": {}}}',
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 metadata
             );
 
@@ -360,7 +360,7 @@ suite('ValidationPipeline Tests', () => {
 
             const context = ValidationPipeline.createContext(
                 'source=logs | stats count()',
-                'ppl',
+                QueryType.PPL,
                 undefined,
                 connectionOverrides
             );
@@ -378,7 +378,7 @@ suite('ValidationPipeline Tests', () => {
 
             const context = ValidationPipeline.createContext(
                 '',
-                'opensearch-api',
+                QueryType.OPENSEARCH_API,
                 metadata,
                 connectionOverrides
             );

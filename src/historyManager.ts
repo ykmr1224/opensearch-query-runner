@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { QueryHistoryItem, QueryResult, OpenSearchConfig } from './types';
+import { QueryHistoryItem, QueryResult, QueryType } from './types';
 
 export class HistoryManager {
     private history: QueryHistoryItem[] = [];
@@ -41,7 +41,7 @@ export class HistoryManager {
 
     public async addToHistory(
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         result: QueryResult,
         endpoint: string,
         explainResult?: QueryResult
@@ -56,13 +56,10 @@ export class HistoryManager {
             explainResult
         };
 
-        // Add to beginning of history
         this.history.unshift(historyItem);
         
-        // Trim history if needed
         this.trimHistory();
         
-        // Save to persistent storage
         await this.saveHistory();
     }
 
@@ -103,7 +100,7 @@ export class HistoryManager {
         );
     }
 
-    public getHistoryByType(queryType: 'sql' | 'ppl'): QueryHistoryItem[] {
+    public getHistoryByType(queryType: QueryType.SQL | QueryType.PPL): QueryHistoryItem[] {
         return this.history.filter(item => item.queryType === queryType);
     }
 
@@ -124,8 +121,8 @@ export class HistoryManager {
         const total = this.history.length;
         const successful = this.history.filter(item => item.result.success).length;
         const failed = total - successful;
-        const sql = this.history.filter(item => item.queryType === 'sql').length;
-        const ppl = this.history.filter(item => item.queryType === 'ppl').length;
+        const sql = this.history.filter(item => item.queryType === QueryType.SQL).length;
+        const ppl = this.history.filter(item => item.queryType === QueryType.PPL).length;
         
         const executionTimes = this.history
             .filter(item => item.result.success)

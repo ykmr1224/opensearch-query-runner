@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { QueryBlock, ConfigurationBlock } from '../types';
+import { QueryBlock, ConfigurationBlock, QueryType } from '../types';
 import { BaseParser, IDocumentParser } from './baseParser';
 
 // TypeScript interfaces for RST parsing
@@ -37,12 +37,13 @@ export class RstParser extends BaseParser implements IDocumentParser {
             
             // Check if this is a supported query type (not configuration blocks)
             if (['sql', 'ppl', 'opensearch-api'].includes(language)) {
-                const queryType = language as 'sql' | 'ppl' | 'opensearch-api';
+                const queryTypeString = language as QueryType;
+                const queryType = queryTypeString as QueryType;
                 
                 // For RST, use custom content extraction that preserves HTTP lines but filters metadata comments
-                const cleanContent = this.extractRstQueryContent(content, queryType);
+                const cleanContent = this.extractRstQueryContent(content, queryTypeString);
                 
-                const metadata = BaseParser.parseMetadata(content, queryType);
+                const metadata = BaseParser.parseMetadata(content, queryTypeString);
                 
                 // Calculate position in document for this block
                 const blockStart = this.findRstBlockPosition(text, block.language, block.content);
@@ -52,7 +53,7 @@ export class RstParser extends BaseParser implements IDocumentParser {
                 const range = BaseParser.createRange(startPos, endPos);
                 
                 // For opensearch-api, we need metadata even if content is empty
-                if (cleanContent.trim() || (queryType === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
+                if (cleanContent.trim() || (queryTypeString === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
                     queryBlocks.push({
                         type: queryType,
                         content: cleanContent,
@@ -200,7 +201,7 @@ export class RstParser extends BaseParser implements IDocumentParser {
     /**
      * Extract query content for RST blocks - filters metadata comments and HTTP lines for opensearch-api
      */
-    private extractRstQueryContent(content: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
+    private extractRstQueryContent(content: string, queryType: QueryType): string {
         const lines = content.split('\n');
         const queryLines: string[] = [];
         let skipFirstHttpLine = false;

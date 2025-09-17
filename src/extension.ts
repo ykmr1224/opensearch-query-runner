@@ -16,7 +16,6 @@ let codeLensProvider: OpenSearchCodeLensProvider;
 export function activate(context: vscode.ExtensionContext) {
     console.log('OpenSearch Query Runner extension is now active!');
 
-    // Initialize core components
     connectionManager = new ConnectionManager();
     queryRunner = new QueryRunner(connectionManager);
     historyManager = new HistoryManager(context);
@@ -100,7 +99,6 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.tooltip = 'Configure OpenSearch connection';
     statusBarItem.show();
 
-    // Update status bar based on connection
     updateStatusBar(statusBarItem);
 
     // Listen for configuration changes to update status bar
@@ -141,7 +139,6 @@ async function runQuery(
     displayMode?: DisplayMode
 ): Promise<void> {
     try {
-        // Get active editor and document
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found');
@@ -164,7 +161,6 @@ async function runQuery(
             return;
         }
 
-        // Check connection configuration
         const config = connectionManager.getConfig();
         if (!config || !config.endpoint) {
             const choice = await vscode.window.showWarningMessage(
@@ -267,7 +263,6 @@ async function formatQuery(uri?: vscode.Uri, position?: vscode.Position): Promis
             return;
         }
 
-        // Format the query
         const formattedQuery = DocumentParser.formatQuery(queryBlock.content, queryBlock.type);
 
         // Replace the query content

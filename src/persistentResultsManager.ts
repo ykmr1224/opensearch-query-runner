@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
-import { QueryResult, QueryHistoryItem } from './types';
+import { QueryResult, QueryType } from './types';
 import { HistoryManager } from './historyManager';
 import { TabContentGenerator } from './utils/tabContentGenerator';
 import { HttpFormatter } from './utils/httpFormatter';
 import { SvgIcons } from './utils/svgIcons';
-import { TimestampFormatter } from './utils/timestampFormatter';
 import { WebviewStyles } from './utils/webviewStyles';
 
 export class PersistentResultsManager {
@@ -27,10 +26,9 @@ export class PersistentResultsManager {
     public async showResults(
         result: QueryResult,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         explainResult?: QueryResult
     ): Promise<void> {
-        // Get the most recent history item (should be the one just added)
         const recentHistory = this.historyManager.getRecentHistory(1);
         if (recentHistory.length > 0) {
             this.currentHistoryId = recentHistory[0].id;
@@ -66,13 +64,11 @@ export class PersistentResultsManager {
             }
         );
 
-        // Handle panel disposal
         this.panel.onDidDispose(() => {
             this.panel = undefined;
             PersistentResultsManager.instance = undefined;
         });
 
-        // Handle messages from webview
         this.panel.webview.onDidReceiveMessage(
             async (message) => {
                 try {
@@ -154,10 +150,10 @@ export class PersistentResultsManager {
     private generateResultsHtml(
         result: QueryResult,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         explainResult?: QueryResult
     ): string {
-        const timestamp = TimestampFormatter.formatLocal(result.executedAt);
+        const timestamp = result.executedAt.toLocaleString();
         const tabs = TabContentGenerator.generateResultTabs(result, explainResult);
         const tabsHtml = TabContentGenerator.generateTabsHtml(tabs);
         const metadata = HttpFormatter.generateMetadata(result, explainResult);
@@ -223,7 +219,7 @@ export class PersistentResultsManager {
             return `
                 <div class="history-square ${statusClass} ${isSelected ? 'selected' : ''}" 
                      onclick="selectHistory('${item.id}')" 
-                     title="${item.queryType.toUpperCase()} - ${item.result.success ? 'Success' : 'Failed'} - ${TimestampFormatter.formatLocal(item.timestamp)}">
+                     title="${item.queryType.toUpperCase()} - ${item.result.success ? 'Success' : 'Failed'} - ${item.timestamp.toLocaleString()}">
                     ${queryTypeLetter}
                 </div>
             `;
@@ -241,7 +237,7 @@ export class PersistentResultsManager {
         `;
     }
 
-    private getQueryTypeLetter(queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
+    private getQueryTypeLetter(queryType: QueryType): string {
         switch (queryType) {
             case 'sql': return 'S';
             case 'ppl': return 'P';

@@ -1,17 +1,7 @@
 import * as yaml from 'js-yaml';
+import { JsonUtils } from './jsonUtils';
 
 export class YamlConverter {
-    /**
-     * Checks if a string contains valid JSON
-     */
-    public static isValidJSON(str: string): boolean {
-        try {
-            JSON.parse(str);
-            return true;
-        } catch {
-            return false;
-        }
-    }
 
     /**
      * Converts JSON string to YAML with compact formatting
@@ -48,7 +38,7 @@ export class YamlConverter {
         let yamlContent = '';
         let hasValidJson = false;
 
-        if (this.isValidJSON(jsonContent)) {
+        if (JsonUtils.isValidJSON(jsonContent)) {
             try {
                 yamlContent = this.convertJsonToYaml(jsonContent);
                 hasValidJson = true;

@@ -1,5 +1,4 @@
 import { QueryResult, OpenSearchResponse } from '../types';
-import { ConnectionInfoManager } from './connectionInfoManager';
 
 export class ResponseProcessor {
     /**
@@ -15,19 +14,16 @@ export class ResponseProcessor {
         let rowCount: number | undefined = undefined;
         let columns: string[] | undefined = undefined;
 
-        // Handle SQL response format
         if (response.schema && response.datarows) {
             columns = response.schema.map(col => col.name);
             data = this.formatSqlResponse(response.schema, response.datarows);
             rowCount = response.datarows.length;
         }
-        // Handle search response format
         else if (response.hits) {
             data = response.hits.hits;
             rowCount = response.hits.total?.value || response.hits.hits.length;
             columns = this.extractColumnsFromHits(response.hits.hits);
         }
-        // Handle API response formats
         else if (queryType === 'opensearch-api') {
             data = response;
             // For API operations, try to extract meaningful row count
@@ -42,13 +38,11 @@ export class ResponseProcessor {
                 rowCount = response.length;
             }
         }
-        // Handle aggregation or other response formats
         else {
             data = response;
             rowCount = Array.isArray(data) ? data.length : undefined;
         }
 
-        // Create the base result
         const result: QueryResult = {
             success: true,
             data,

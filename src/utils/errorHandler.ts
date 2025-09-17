@@ -1,5 +1,4 @@
 import { QueryResult } from '../types';
-import { ConnectionInfoManager } from './connectionInfoManager';
 
 export class ErrorHandler {
     /**
@@ -52,9 +51,6 @@ export class ErrorHandler {
     ): QueryResult {
         const { requestInfo, responseInfo, rawResponse } = this.extractErrorInfo(error);
         
-        // Create enhanced error details
-        const enhancedErrorDetails = this.createEnhancedErrorDetails(error);
-        
         const errorResponse: QueryResult = {
             success: false,
             error: customMessage || this.formatError(error),
@@ -62,14 +58,9 @@ export class ErrorHandler {
             executedAt: new Date(startTime),
             requestInfo,
             responseInfo,
-            rawResponse: rawResponse || {
-                error: {
-                    details: enhancedErrorDetails
-                }
-            }
+            rawResponse
         };
 
-        // Add connection info if provided
         if (connectionInfo) {
             errorResponse.connectionInfo = connectionInfo;
         }
@@ -92,17 +83,14 @@ export class ErrorHandler {
             rawResponse: response
         };
         
-        // Add request info if available
         if (response.requestInfo) {
             errorResponse.requestInfo = response.requestInfo;
         }
         
-        // Add response info if available
         if (response.responseInfo) {
             errorResponse.responseInfo = response.responseInfo;
         }
         
-        // Add connection info if available
         if (response.connectionInfo) {
             errorResponse.connectionInfo = response.connectionInfo;
         }

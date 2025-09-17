@@ -1,5 +1,20 @@
 import * as vscode from 'vscode';
 
+export enum QueryType {
+    SQL = 'sql',
+    PPL = 'ppl',
+    OPENSEARCH_API = 'opensearch-api'
+}
+
+export enum HttpMethod {
+    GET = 'GET',
+    POST = 'POST',
+    PUT = 'PUT',
+    DELETE = 'DELETE',
+    HEAD = 'HEAD',
+    PATCH = 'PATCH'
+}
+
 export interface OpenSearchConfig {
     endpoint: string;
     auth: {
@@ -31,7 +46,7 @@ export interface ConfigurationBlock {
 }
 
 export interface QueryBlock {
-    type: 'sql' | 'ppl' | 'opensearch-api';
+    type: QueryType;
     content: string;
     range: vscode.Range;
     metadata?: QueryMetadata;
@@ -75,7 +90,7 @@ export interface QueryResult {
 export interface QueryHistoryItem {
     id: string;
     query: string;
-    queryType: 'sql' | 'ppl' | 'opensearch-api';
+    queryType: QueryType;
     timestamp: Date;
     result: QueryResult;
     endpoint: string;

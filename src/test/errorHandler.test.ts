@@ -132,7 +132,7 @@ suite('ErrorHandler Tests', () => {
             const result = ErrorHandler.createErrorResponse(error, startTime);
 
             assert.strictEqual(result.success, false);
-            assert.strictEqual(result.error, 'Request failed with status code 404');
+            assert.strictEqual(result.error, '404 Not Found: no such index [missing]');
             assert.ok(result.executionTime >= 150);
             assert.deepStrictEqual(result.rawResponse, error.response.data);
             assert.strictEqual(result.responseInfo?.status, 404);

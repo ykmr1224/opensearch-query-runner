@@ -1,10 +1,10 @@
-import { QueryResult, ConnectionOverrides } from '../types';
+import { QueryResult, ConnectionOverrides, QueryType } from '../types';
 import { ErrorHandler } from './errorHandler';
 import { ValidationPipeline, ValidationContext } from './validationPipeline';
 
 export interface QueryExecutionContext {
     query: string;
-    queryType: 'sql' | 'ppl' | 'opensearch-api';
+    queryType: QueryType;
     timeout?: number;
     metadata?: any;
     connectionOverrides?: ConnectionOverrides;
@@ -26,19 +26,15 @@ export class QueryExecutionEngine {
         responseProcessor: (response: T, executionTime: number, queryType?: string, startTime?: number) => QueryResult
     ): Promise<QueryResult> {
         try {
-            // Execute the query operation
             const response = await executor(context);
             const executionTime = Date.now() - context.startTime;
 
-            // Handle error responses
             if (response && (response as any).error) {
                 return ErrorHandler.createApiErrorResponse(response, context.startTime);
             }
 
-            // Process successful response
             const result = responseProcessor(response, executionTime, context.queryType, context.startTime);
             
-            // Add request/response info if available
             const responseWithInfo = response as any;
             if (responseWithInfo.requestInfo) {
                 result.requestInfo = responseWithInfo.requestInfo;
@@ -97,7 +93,7 @@ export class QueryExecutionEngine {
      */
     public static createContext(
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         timeout?: number,
         metadata?: any,
         connectionOverrides?: ConnectionOverrides

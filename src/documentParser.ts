@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { QueryBlock, QueryMetadata, ConnectionOverrides, ConfigurationBlock } from './types';
+import { QueryBlock, QueryMetadata, ConnectionOverrides, ConfigurationBlock, QueryType, HttpMethod } from './types';
 import { IDocumentParser, MarkdownParser, RstParser } from './parsers';
+import { JsonUtils } from './utils/jsonUtils';
 
 export class DocumentParser {
     public static parseDocument(document: vscode.TextDocument): QueryBlock[] {
@@ -30,15 +31,15 @@ export class DocumentParser {
         );
     }
 
-    public static validateQuery(content: string, type: 'sql' | 'ppl' | 'opensearch-api', metadata?: QueryMetadata): { valid: boolean; error?: string } {
+    public static validateQuery(content: string, type: QueryType, metadata?: QueryMetadata): { valid: boolean; error?: string } {
         const trimmedContent = content.trim();
         
         // For opensearch-api, content can be empty for GET/DELETE operations
-        if (!trimmedContent && type !== 'opensearch-api') {
+        if (!trimmedContent && type !== QueryType.OPENSEARCH_API) {
             return { valid: false, error: 'Query cannot be empty' };
         }
         
-        if (type === 'opensearch-api') {
+        if (type === QueryType.OPENSEARCH_API) {
             // API validation
             if (!metadata?.method) {
                 return { 
@@ -54,8 +55,8 @@ export class DocumentParser {
                 };
             }
             
-            const validMethods = ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'PATCH'];
-            if (!validMethods.includes(metadata.method.toUpperCase())) {
+            const validMethods = Object.values(HttpMethod);
+            if (!validMethods.includes(metadata.method.toUpperCase() as HttpMethod)) {
                 return { 
                     valid: false, 
                     error: `Invalid HTTP method: ${metadata.method}. Must be one of: ${validMethods.join(', ')}` 
@@ -63,31 +64,20 @@ export class DocumentParser {
             }
             
             // For methods that typically have request bodies, validate JSON if content exists
-            if (['POST', 'PUT'].includes(metadata.method.toUpperCase()) && trimmedContent) {
+            if ([HttpMethod.POST, HttpMethod.PUT].includes(metadata.method.toUpperCase() as HttpMethod) && trimmedContent) {
                 // Check if this is a bulk operation
                 const isBulkOperation = metadata.endpoint?.includes('/_bulk');
                 
                 if (isBulkOperation) {
-                    // For bulk operations, validate each line as JSON (NDJSON format)
-                    const lines = trimmedContent.split('\n');
-                    for (const line of lines) {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine) { // Skip empty lines
-                            try {
-                                JSON.parse(trimmedLine);
-                            } catch (error) {
-                                return { 
-                                    valid: false, 
-                                    error: `Invalid JSON in bulk request line: ${trimmedLine}` 
-                                };
-                            }
-                        }
+                    // For bulk operations, validate using centralized utility
+                    const validation = JsonUtils.validateBulkJSON(trimmedContent);
+                    if (!validation.valid) {
+                        return validation;
                     }
                 } else {
                     // For regular operations, validate as single JSON object
-                    try {
-                        JSON.parse(trimmedContent);
-                    } catch (error) {
+                    const validation = JsonUtils.validateAndParse(trimmedContent);
+                    if (!validation.valid) {
                         return { 
                             valid: false, 
                             error: 'Invalid JSON in request body' 
@@ -100,26 +90,20 @@ export class DocumentParser {
         return { valid: true };
     }
 
-    public static formatQuery(content: string, type: 'sql' | 'ppl' | 'opensearch-api'): string {
+    public static formatQuery(content: string, type: QueryType): string {
         // Basic query formatting
         const lines = content.split('\n');
         const formattedLines = lines.map(line => line.trim()).filter(line => line.length > 0);
         
-        if (type === 'sql') {
+        if (type === QueryType.SQL) {
             // Basic SQL formatting
             return formattedLines.join('\n');
-        } else if (type === 'ppl') {
+        } else if (type === QueryType.PPL) {
             // PPL formatting
             return formattedLines.join('\n');
-        } else if (type === 'opensearch-api') {
-            // JSON formatting for API requests
-            try {
-                const parsed = JSON.parse(content);
-                return JSON.stringify(parsed, null, 2);
-            } catch (error) {
-                // If not valid JSON, return as-is
-                return content;
-            }
+        } else if (type === QueryType.OPENSEARCH_API) {
+            // JSON formatting for API requests using centralized utility
+            return JsonUtils.formatJSON(content);
         }
         
         return content;
@@ -263,6 +247,3 @@ export class DocumentParser {
         return { valid: true };
     }
 }
-
-// Backward compatibility - export the class itself, not an alias
-export { DocumentParser as MarkdownParser };

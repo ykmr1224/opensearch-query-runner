@@ -1,4 +1,5 @@
 import { ConnectionOverrides, QueryResult } from '../types';
+import { JsonUtils } from './jsonUtils';
 
 export class RequestInfoBuilder {
     /**
@@ -115,16 +116,10 @@ export class RequestInfoBuilder {
     public static processBulkBody(body: string): string {
         let processedBody = body.trim();
         
-        // Validate that each non-empty line is valid JSON
-        const lines = processedBody.split('\n');
-        for (const line of lines) {
-            if (line.trim()) { // Skip empty lines
-                try {
-                    JSON.parse(line.trim());
-                } catch (error) {
-                    throw new Error(`Invalid JSON in bulk request line: ${line.trim()}`);
-                }
-            }
+        // Validate using centralized JSON utilities
+        const validation = JsonUtils.validateBulkJSON(processedBody);
+        if (!validation.valid) {
+            throw new Error(validation.error);
         }
         
         // Ensure the body ends with a newline (required for bulk API)
@@ -139,10 +134,10 @@ export class RequestInfoBuilder {
      * Validate and parse JSON body for regular API operations
      */
     public static validateJsonBody(body: string): any {
-        try {
-            return JSON.parse(body);
-        } catch (error) {
+        const result = JsonUtils.validateAndParse(body);
+        if (!result.valid) {
             throw new Error('Invalid JSON in request body');
         }
+        return result.data;
     }
 }

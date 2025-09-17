@@ -1,9 +1,9 @@
-import { QueryResult, ConnectionOverrides } from '../types';
+import { QueryResult, ConnectionOverrides, QueryType } from '../types';
 import { DocumentParser } from '../documentParser';
 
 export interface ValidationContext {
     query: string;
-    queryType: 'sql' | 'ppl' | 'opensearch-api';
+    queryType: QueryType;
     metadata?: any;
     connectionOverrides?: ConnectionOverrides;
     startTime: number;
@@ -52,7 +52,7 @@ export class ValidationPipeline {
         const rules = [...this.COMMON_RULES];
         
         // Add API-specific rules
-        if (context.queryType === 'opensearch-api') {
+        if (context.queryType === QueryType.OPENSEARCH_API) {
             rules.push(...this.API_RULES);
         }
 
@@ -72,7 +72,7 @@ export class ValidationPipeline {
      */
     public static validateQueryBlock(
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         metadata?: any,
         connectionOverrides?: ConnectionOverrides
     ): QueryResult | null {
@@ -135,7 +135,7 @@ export class ValidationPipeline {
      * Validates API operation metadata
      */
     private static validateApiMetadata(context: ValidationContext): ValidationResult {
-        if (context.queryType !== 'opensearch-api') {
+        if (context.queryType !== QueryType.OPENSEARCH_API) {
             return { valid: true };
         }
 
@@ -170,7 +170,7 @@ export class ValidationPipeline {
      * Validates explain query type
      */
     private static validateExplainQueryType(context: ValidationContext): ValidationResult {
-        if (context.queryType !== 'sql' && context.queryType !== 'ppl') {
+        if (context.queryType !== QueryType.SQL && context.queryType !== QueryType.PPL) {
             return {
                 valid: false,
                 error: 'Explain is only supported for SQL and PPL queries'
@@ -259,7 +259,7 @@ export class ValidationPipeline {
      */
     public static createContext(
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         metadata?: any,
         connectionOverrides?: ConnectionOverrides
     ): ValidationContext {

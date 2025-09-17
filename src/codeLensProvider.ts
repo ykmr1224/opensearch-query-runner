@@ -18,7 +18,6 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
         document: vscode.TextDocument,
         token: vscode.CancellationToken
     ): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
-        // Check if CodeLens is enabled
         const config = vscode.workspace.getConfiguration('opensearch');
         if (!config.get('enableCodeLens', true)) {
             return [];
@@ -33,7 +32,6 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
         const queryBlocks = DocumentParser.parseDocumentWithOverrides(document);
 
         for (const queryBlock of queryBlocks) {
-            // Create CodeLens at the start of each query block
             const range = new vscode.Range(
                 queryBlock.range.start.line,
                 0,
@@ -41,14 +39,12 @@ export class OpenSearchCodeLensProvider implements vscode.CodeLensProvider {
                 0
             );
 
-            // Add "Run in Tab" command (now first)
             const runInTabLens = new vscode.CodeLens(range, {
                 title: '$(window) Run',
                 command: 'opensearch-query.runQueryInTab',
                 arguments: [document.uri, queryBlock.range.start]
             });
 
-            // Add "Run Inline" command (now second)
             const runInlineLens = new vscode.CodeLens(range, {
                 title: '$(output) Inline',
                 command: 'opensearch-query.runQueryInline',
@@ -91,7 +87,6 @@ export class OpenSearchCodeActionProvider implements vscode.CodeActionProvider {
         const queryBlock = DocumentParser.findQueryBlockAtPositionWithOverrides(document, position);
 
         if (queryBlock) {
-            // Add "Run Query" action
             const runAction = new vscode.CodeAction(
                 'Run OpenSearch Query',
                 vscode.CodeActionKind.Empty

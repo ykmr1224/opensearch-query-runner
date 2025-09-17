@@ -1,10 +1,9 @@
 import * as vscode from 'vscode';
-import { QueryResult, DisplayMode } from './types';
+import { QueryResult, DisplayMode, QueryType } from './types';
 import { HttpFormatter } from './utils/httpFormatter';
 import { TabContentGenerator } from './utils/tabContentGenerator';
 import { PersistentResultsManager } from './persistentResultsManager';
 import { HistoryManager } from './historyManager';
-import { TimestampFormatter } from './utils/timestampFormatter';
 import { WebviewStyles } from './utils/webviewStyles';
 
 export class ResultsProvider {
@@ -20,7 +19,7 @@ export class ResultsProvider {
         result: QueryResult,
         mode: DisplayMode,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         document?: vscode.TextDocument,
         position?: vscode.Position
     ): Promise<void> {
@@ -36,7 +35,7 @@ export class ResultsProvider {
         explainResult: QueryResult,
         mode: DisplayMode,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         document?: vscode.TextDocument,
         position?: vscode.Position
     ): Promise<void> {
@@ -52,7 +51,7 @@ export class ResultsProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api'
+        queryType: QueryType
     ): Promise<void> {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document !== document) {
@@ -60,7 +59,6 @@ export class ResultsProvider {
             return;
         }
 
-        // Find the end of the code block
         const text = document.getText();
         const lines = text.split('\n');
         let insertLine = position.line;
@@ -92,10 +90,8 @@ export class ResultsProvider {
             }
         }
 
-        // Check if results already exist and remove them
         await this.removeExistingInlineResults(editor, insertLine);
 
-        // Format results
         const formattedResults = this.formatInlineResults(result, query, queryType);
         
         // Insert results
@@ -122,7 +118,6 @@ export class ResultsProvider {
         let startIndex = -1;
         let endIndex = -1;
 
-        // Find existing results markers
         for (let i = startLine; i < lines.length; i++) {
             if (lines[i].includes(ResultsProvider.RESULTS_START)) {
                 startIndex = i;
@@ -133,7 +128,6 @@ export class ResultsProvider {
             }
         }
 
-        // Remove existing results if found
         if (startIndex >= 0 && endIndex >= 0) {
             const startPos = new vscode.Position(startIndex, 0);
             const endPos = new vscode.Position(endIndex + 1, 0);
@@ -145,8 +139,8 @@ export class ResultsProvider {
         }
     }
 
-    private formatInlineResults(result: QueryResult, query: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
-        const timestamp = TimestampFormatter.formatLocal(result.executedAt);
+    private formatInlineResults(result: QueryResult, query: string, queryType: QueryType): string {
+        const timestamp = result.executedAt.toLocaleString();
         let output = `\n${ResultsProvider.RESULTS_START}\n`;
         output += `**${queryType.toUpperCase()} @ ${timestamp}**\n\n`;
 
@@ -278,7 +272,7 @@ export class ResultsProvider {
     private async displaySeparateTabResults(
         result: QueryResult,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api'
+        queryType: QueryType
     ): Promise<void> {
         const persistentManager = PersistentResultsManager.getInstance(this.historyManager);
         await persistentManager.showResults(result, query, queryType);
@@ -288,13 +282,13 @@ export class ResultsProvider {
         result: QueryResult,
         explainResult: QueryResult,
         query: string,
-        queryType: 'sql' | 'ppl' | 'opensearch-api'
+        queryType: QueryType
     ): Promise<void> {
         const persistentManager = PersistentResultsManager.getInstance(this.historyManager);
         await persistentManager.showResults(result, query, queryType, explainResult);
     }
 
-    private generateResultsHtml(result: QueryResult, query: string, queryType: 'sql' | 'ppl' | 'opensearch-api'): string {
+    private generateResultsHtml(result: QueryResult, query: string, queryType: QueryType): string {
         return this.generateUnifiedResultsHtml(result, query, queryType);
     }
 
@@ -302,7 +296,7 @@ export class ResultsProvider {
         result: QueryResult, 
         explainResult: QueryResult, 
         query: string, 
-        queryType: 'sql' | 'ppl' | 'opensearch-api'
+        queryType: QueryType
     ): string {
         return this.generateUnifiedResultsHtml(result, query, queryType, explainResult);
     }
@@ -310,10 +304,10 @@ export class ResultsProvider {
     private generateUnifiedResultsHtml(
         result: QueryResult, 
         query: string, 
-        queryType: 'sql' | 'ppl' | 'opensearch-api',
+        queryType: QueryType,
         explainResult?: QueryResult
     ): string {
-        const timestamp = TimestampFormatter.formatLocal(result.executedAt);
+        const timestamp = result.executedAt.toLocaleString();
         const tabs = TabContentGenerator.generateResultTabs(result, explainResult);
         const tabsHtml = TabContentGenerator.generateTabsHtml(tabs);
         const metadata = HttpFormatter.generateMetadata(result, explainResult);

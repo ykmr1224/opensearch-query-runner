@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { HistoryManager } from '../historyManager';
-import { QueryResult } from '../types';
+import { QueryResult, QueryType } from '../types';
 
 suite('HistoryManager Test Suite', () => {
     let historyManager: HistoryManager;
@@ -22,7 +22,7 @@ suite('HistoryManager Test Suite', () => {
 
     test('Should add history item correctly', async () => {
         const query = 'SELECT * FROM test';
-        const queryType = 'sql' as const;
+        const queryType = QueryType.SQL;
         const result: QueryResult = {
             success: true,
             executionTime: 100,
@@ -44,7 +44,7 @@ suite('HistoryManager Test Suite', () => {
     test('Should remove history item correctly', async () => {
         // Add a test item
         const query = 'SELECT * FROM test';
-        const queryType = 'sql' as const;
+        const queryType = QueryType.SQL;
         const result: QueryResult = {
             success: true,
             executionTime: 100,
@@ -78,9 +78,9 @@ suite('HistoryManager Test Suite', () => {
             data: []
         };
 
-        await historyManager.addToHistory('SELECT * FROM test1', 'sql', result, 'http://localhost:9200');
-        await historyManager.addToHistory('SELECT * FROM test2', 'sql', result, 'http://localhost:9200');
-        await historyManager.addToHistory('source=logs | head 10', 'ppl', result, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM test1', QueryType.SQL, result, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM test2', QueryType.SQL, result, 'http://localhost:9200');
+        await historyManager.addToHistory('source=logs | head 10', QueryType.PPL, result, 'http://localhost:9200');
         
         let history = historyManager.getHistory();
         assert.strictEqual(history.length, 3);
@@ -101,18 +101,18 @@ suite('HistoryManager Test Suite', () => {
             data: []
         };
 
-        await historyManager.addToHistory('SELECT * FROM users', 'sql', result, 'http://localhost:9200');
-        await historyManager.addToHistory('SELECT * FROM orders', 'sql', result, 'http://localhost:9200');
-        await historyManager.addToHistory('source=logs | head 10', 'ppl', result, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM users', QueryType.SQL, result, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM orders', QueryType.SQL, result, 'http://localhost:9200');
+        await historyManager.addToHistory('source=logs | head 10', QueryType.PPL, result, 'http://localhost:9200');
         
         const searchResults = historyManager.searchHistory('users');
         assert.strictEqual(searchResults.length, 1);
         assert.strictEqual(searchResults[0].query, 'SELECT * FROM users');
         
-        const sqlResults = historyManager.getHistoryByType('sql');
+        const sqlResults = historyManager.getHistoryByType(QueryType.SQL);
         assert.strictEqual(sqlResults.length, 2);
         
-        const pplResults = historyManager.getHistoryByType('ppl');
+        const pplResults = historyManager.getHistoryByType(QueryType.PPL);
         assert.strictEqual(pplResults.length, 1);
     });
 
@@ -132,9 +132,9 @@ suite('HistoryManager Test Suite', () => {
             error: 'Connection failed'
         };
 
-        await historyManager.addToHistory('SELECT * FROM users', 'sql', successResult, 'http://localhost:9200');
-        await historyManager.addToHistory('SELECT * FROM orders', 'sql', errorResult, 'http://localhost:9200');
-        await historyManager.addToHistory('source=logs | head 10', 'ppl', successResult, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM users', QueryType.SQL, successResult, 'http://localhost:9200');
+        await historyManager.addToHistory('SELECT * FROM orders', QueryType.SQL, errorResult, 'http://localhost:9200');
+        await historyManager.addToHistory('source=logs | head 10', QueryType.PPL, successResult, 'http://localhost:9200');
         
         const stats = historyManager.getStatistics();
         assert.strictEqual(stats.totalQueries, 3);

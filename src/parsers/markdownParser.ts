@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { QueryBlock, ConfigurationBlock } from '../types';
+import { QueryBlock, ConfigurationBlock, QueryType } from '../types';
 import { BaseParser, IDocumentParser } from './baseParser';
 
 /**
@@ -21,12 +21,13 @@ export class MarkdownParser extends BaseParser implements IDocumentParser {
             const startPos = document.positionAt(match.index);
             const endPos = document.positionAt(match.index + fullMatch.length);
             
-            const queryType = language.toLowerCase() as 'sql' | 'ppl' | 'opensearch-api';
-            const cleanContent = BaseParser.extractQueryContent(content, queryType);
-            const metadata = BaseParser.parseMetadata(content, queryType);
+            const queryTypeString = language.toLowerCase() as QueryType;
+            const queryType = queryTypeString as QueryType;
+            const cleanContent = BaseParser.extractQueryContent(content, queryTypeString);
+            const metadata = BaseParser.parseMetadata(content, queryTypeString);
             
             // For opensearch-api, we need metadata even if content is empty
-            if (cleanContent.trim() || (queryType === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
+            if (cleanContent.trim() || (queryTypeString === 'opensearch-api' && (metadata.method || metadata.endpoint))) {
                 const range = BaseParser.createRange(startPos, endPos);
                 
                 queryBlocks.push({

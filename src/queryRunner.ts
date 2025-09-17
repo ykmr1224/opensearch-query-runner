@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { ConnectionManager } from './connectionManager';
 import { DocumentParser } from './documentParser';
-import { QueryResult, QueryBlock, OpenSearchResponse, DisplayMode, ConnectionOverrides } from './types';
-import { QueryExecutionEngine, QueryExecutionContext } from './utils/queryExecutor';
+import { QueryResult, QueryBlock, DisplayMode, ConnectionOverrides, QueryType } from './types';
+import { QueryExecutionEngine } from './utils/queryExecutor';
 import { ResponseProcessor } from './utils/responseProcessor';
 
 export class QueryRunner {
@@ -14,7 +14,7 @@ export class QueryRunner {
 
     public async executeQuery(
         query: string, 
-        queryType: 'sql' | 'ppl' | 'opensearch-api', 
+        queryType: QueryType, 
         timeout?: number,
         metadata?: any,
         connectionOverrides?: ConnectionOverrides
@@ -31,7 +31,7 @@ export class QueryRunner {
             context,
             async (ctx) => {
                 // Execute based on query type
-                if (ctx.queryType === 'opensearch-api') {
+                if (ctx.queryType === QueryType.OPENSEARCH_API) {
                     return await this.connectionManager.executeApiOperationWithOverrides(
                         ctx.metadata.method, 
                         ctx.metadata.endpoint, 
@@ -63,7 +63,7 @@ export class QueryRunner {
 
     public async executeExplainQuery(
         query: string, 
-        queryType: 'sql' | 'ppl', 
+        queryType: QueryType.SQL | QueryType.PPL, 
         timeout?: number,
         connectionOverrides?: ConnectionOverrides
     ): Promise<QueryResult> {
@@ -89,7 +89,7 @@ export class QueryRunner {
     }
 
     public async executeExplainQueryFromBlock(queryBlock: QueryBlock): Promise<QueryResult> {
-        if (queryBlock.type !== 'sql' && queryBlock.type !== 'ppl') {
+        if (queryBlock.type !== QueryType.SQL && queryBlock.type !== QueryType.PPL) {
             return {
                 success: false,
                 error: 'Explain is only supported for SQL and PPL queries',
@@ -101,7 +101,7 @@ export class QueryRunner {
         const timeout = queryBlock.metadata?.timeout;
         return this.executeExplainQuery(
             queryBlock.content, 
-            queryBlock.type, 
+            queryBlock.type as QueryType.SQL | QueryType.PPL, 
             timeout,
             queryBlock.connectionOverrides
         );

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { DocumentParser } from '../documentParser';
+import { QueryType } from '../types';
 
 suite('HTTP Request Line Parsing Tests', () => {
     
@@ -240,7 +241,7 @@ GET /sample_logs/_search
         
         const document = createMockDocument(validContent);
         const blocks = DocumentParser.parseDocument(document);
-        const validation = DocumentParser.validateQuery(blocks[0].content, 'opensearch-api', blocks[0].metadata);
+        const validation = DocumentParser.validateQuery(blocks[0].content, QueryType.OPENSEARCH_API, blocks[0].metadata);
         
         assert.strictEqual(validation.valid, true);
     });
