@@ -136,7 +136,7 @@ export class WebviewStyles {
                     background-color: var(--vscode-button-background);
                     color: var(--vscode-button-foreground);
                     padding: 4px 8px;
-                    font-size: 0.8em;
+                    font-size: 0.9em;
                     font-weight: bold;
                     text-transform: uppercase;
                     border-top-right-radius: 3px;
@@ -153,11 +153,9 @@ export class WebviewStyles {
                     color: var(--vscode-button-foreground);
                     border: none;
                     padding: 4px 6px;
-                    font-size: 0.9em;
+                    font-size: 1.0em;
                     font-weight: bold;
                     cursor: pointer;
-                    border-top-left-radius: 3px;
-                    border-bottom-left-radius: 3px;
                     transition: background-color 0.2s ease;
                     line-height: 1;
                     display: flex;
