@@ -345,6 +345,35 @@ export class WebviewStyles {
                     right: 0;
                     z-index: 10;
                 }
+                .text-container {
+                    position: relative;
+                    margin-top: 10px;
+                }
+                .text-copy-header {
+                    position: absolute;
+                    top: -35px;
+                    right: 0;
+                    z-index: 10;
+                }
+                .text-table-container {
+                    background-color: var(--vscode-textCodeBlock-background);
+                    border: 1px solid var(--vscode-panel-border);
+                    border-radius: 4px;
+                    padding: 15px;
+                    overflow-x: auto;
+                    overflow-y: auto;
+                    font-family: 'Courier New', Consolas, 'Liberation Mono', monospace;
+                    font-size: 0.9em;
+                    line-height: 1.2;
+                    max-height: 70vh;
+                    word-wrap: normal;
+                }
+                .text-table-container pre {
+                    margin: 0;
+                    white-space: pre;
+                    word-wrap: normal;
+                    overflow-wrap: normal;
+                }
         `;
     }
 

@@ -35,6 +35,13 @@ export class TabContentGenerator {
                     content: this.generateTableContent(result),
                     active: true
                 });
+
+                // Add text view tab for table data
+                tabs.push({
+                    id: 'text',
+                    label: 'Text View',
+                    content: this.generateTextContent(result)
+                });
             }
 
             // Always add JSON view
@@ -94,6 +101,27 @@ export class TabContentGenerator {
 
     private static generateTableContent(result: QueryResult): string {
         return this.generateHtmlTable(result.data, result.columns, result.rawResponse?.schema);
+    }
+
+    private static generateTextContent(result: QueryResult): string {
+        if (!result.data || !Array.isArray(result.data) || result.data.length === 0) {
+            return '<p>No results found</p>';
+        }
+
+        const textTable = this.generateTextTable(result.data, result.columns, result.rowCount);
+        const textId = `text_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const copyButtonId = `copy-text-${textId}`;
+
+        return `
+            <div class="text-container">
+                <div class="text-copy-header">
+                    <button id="${copyButtonId}" class="copy-btn" onclick="copyToClipboard('${textId}', '${copyButtonId}')">Copy Text</button>
+                </div>
+                <div class="text-table-container">
+                    <pre id="${textId}">${textTable}</pre>
+                </div>
+            </div>
+        `;
     }
 
     private static generateJsonContent(result: QueryResult): string {
@@ -330,6 +358,91 @@ Check the Raw Request and Raw Response tabs for more information.</pre>
         
         content += '</div>';
         return content;
+    }
+
+    private static generateTextTable(data: any[], columns?: string[], totalRows?: number): string {
+        if (!data || data.length === 0) {
+            return 'No results found';
+        }
+
+        // Determine columns to display
+        let displayColumns: string[];
+        if (columns && columns.length > 0) {
+            displayColumns = columns;
+        } else {
+            const firstRow = data[0];
+            displayColumns = Object.keys(firstRow);
+        }
+
+        // Convert data to string values and calculate column widths
+        const stringData: string[][] = [];
+        const columnWidths: number[] = displayColumns.map(col => col.length);
+
+        // Process each row and calculate max widths
+        data.forEach(row => {
+            const stringRow: string[] = [];
+            displayColumns.forEach((col, colIndex) => {
+                let value = this.getNestedValue(row, col);
+                if (value === null || value === undefined) {
+                    value = ''; // Empty string for null/undefined values
+                } else if (typeof value === 'object') {
+                    value = JSON.stringify(value);
+                } else {
+                    value = String(value);
+                }
+                stringRow.push(value);
+                columnWidths[colIndex] = Math.max(columnWidths[colIndex], value.length);
+            });
+            stringData.push(stringRow);
+        });
+
+        // Build the text table
+        let result = '';
+        
+        // Add row count information
+        const fetchedRows = data.length;
+        const total = totalRows || fetchedRows;
+        result += `fetched rows / total rows = ${fetchedRows}/${total}\n`;
+
+        // Create top border
+        result += '+';
+        columnWidths.forEach(width => {
+            result += '-'.repeat(width + 2) + '+';
+        });
+        result += '\n';
+
+        // Create header row
+        result += '|';
+        displayColumns.forEach((col, index) => {
+            const padding = columnWidths[index] - col.length;
+            result += ` ${col}${' '.repeat(padding)} |`;
+        });
+        result += '\n';
+
+        // Create header separator
+        result += '|';
+        columnWidths.forEach(width => {
+            result += '-'.repeat(width + 2) + '|';
+        });
+        result += '\n';
+
+        // Create data rows
+        stringData.forEach(row => {
+            result += '|';
+            row.forEach((cell, index) => {
+                const padding = columnWidths[index] - cell.length;
+                result += ` ${cell}${' '.repeat(padding)} |`;
+            });
+            result += '\n';
+        });
+
+        // Create bottom border
+        result += '+';
+        columnWidths.forEach(width => {
+            result += '-'.repeat(width + 2) + '+';
+        });
+
+        return result;
     }
 
     private static getNestedValue(obj: any, path: string): any {
